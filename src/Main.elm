@@ -7,16 +7,6 @@ import Game.View
 
 main : Program () Game Game.Msg
 main =
-    Browser.document
-        { init = init
-        , view = view
-        , update = update
-        , subscriptions = subscriptions
-        }
-
-
-init : () -> ( Game, Cmd Game.Msg )
-init _ =
     let
         game1 =
             makeGame "Spaceship"
@@ -45,61 +35,44 @@ init _ =
                 "The room is humming with the sounds of the engine. There are storage tanks for fuel and oxygen."
                 game4
     in
-    ( game5
-        |> Game.addConnection
-            { from = cockpit
-            , to = commonRoom
-            , name = "Ladder Down"
-            , description = "Ladder to Common Room"
-            }
-        |> Game.addConnection
-            { from = commonRoom
-            , to = sleepingQuarters
-            , name = "Ladder Down"
-            , description = "Ladder to Sleeping Quarters"
-            }
-        |> Game.addConnection
-            { from = commonRoom
-            , to = cockpit
-            , name = "Ladder Up"
-            , description = "Ladder to Cockpit"
-            }
-        |> Game.addConnection
-            { from = sleepingQuarters
-            , to = engineRoom
-            , name = "Ladder Down"
-            , description = "Ladder to Engine Room"
-            }
-        |> Game.addConnection
-            { from = sleepingQuarters
-            , to = commonRoom
-            , name = "Ladder Up"
-            , description = "Ladder to Common Room"
-            }
-        |> Game.addConnection
-            { from = engineRoom
-            , to = sleepingQuarters
-            , name = "Ladder Up"
-            , description = "Ladder to Sleeping Quarters"
-            }
-        |> Game.init commonRoom
-    , Cmd.none
-    )
-
-
-subscriptions : Game -> Sub Game.Msg
-subscriptions _ =
-    Sub.none
-
-
-update : Game.Msg -> Game -> ( Game, Cmd Game.Msg )
-update =
-    Game.update
-
-
-view : Game -> Document Game.Msg
-view model =
-    { title = "Text Adventure"
-    , body =
-        [ Game.View.view model ]
-    }
+    Game.View.program
+        "Text Adventure"
+        (game5
+            |> Game.addConnection
+                { from = cockpit
+                , to = commonRoom
+                , name = "Ladder Down"
+                , description = "Ladder to Common Room"
+                }
+            |> Game.addConnection
+                { from = commonRoom
+                , to = sleepingQuarters
+                , name = "Ladder Down"
+                , description = "Ladder to Sleeping Quarters"
+                }
+            |> Game.addConnection
+                { from = commonRoom
+                , to = cockpit
+                , name = "Ladder Up"
+                , description = "Ladder to Cockpit"
+                }
+            |> Game.addConnection
+                { from = sleepingQuarters
+                , to = engineRoom
+                , name = "Ladder Down"
+                , description = "Ladder to Engine Room"
+                }
+            |> Game.addConnection
+                { from = sleepingQuarters
+                , to = commonRoom
+                , name = "Ladder Up"
+                , description = "Ladder to Common Room"
+                }
+            |> Game.addConnection
+                { from = engineRoom
+                , to = sleepingQuarters
+                , name = "Ladder Up"
+                , description = "Ladder to Sleeping Quarters"
+                }
+            |> Game.init commonRoom
+        )

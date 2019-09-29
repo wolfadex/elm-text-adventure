@@ -1,23 +1,37 @@
-module Game.View exposing (view)
+module Game.View exposing (program)
 
+import Browser exposing (Document)
 import Element exposing (Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Game exposing (Game, Msg(..), View(..))
-import Html exposing (Html)
 
 
-view : Game -> Html Msg
-view game =
-    Element.layout
-        [ Element.width Element.fill
-        , Element.height Element.fill
-        , Background.color <| Element.rgb 0.1 0.1 0.1
+program : String -> Game -> Program () Game Game.Msg
+program name init =
+    Browser.document
+        { init = \_ -> ( init, Cmd.none )
+        , view = view name
+        , update = Game.update
+        , subscriptions = \_ -> Sub.none    
+        }
+
+
+view : String -> Game -> Document Msg
+view name game =
+    { title = name
+    , body =
+        [ Element.layout
+            [ Element.width Element.fill
+            , Element.height Element.fill
+            , Background.color <| Element.rgb 0.1 0.1 0.1
+            ]
+        <|
+            viewGame game
         ]
-    <|
-        viewGame game
+    }
 
 
 viewGame : Game -> Element Msg
