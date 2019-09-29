@@ -54,45 +54,15 @@ init _ =
             }
         |> Game.addConnection
             { from = commonRoom
-            , to = cockpit
-            , name = "Ladder Up"
-            , description = "Ladder to Cockpit"
-            }
-        |> Game.addConnection
-            { from = commonRoom
             , to = sleepingQuarters
             , name = "Ladder Down"
             , description = "Ladder to Sleeping Quarters"
             }
         |> Game.addConnection
-            { from = sleepingQuarters
-            , to = commonRoom
+            { from = commonRoom
+            , to = cockpit
             , name = "Ladder Up"
-            , description = "Ladder to Common Room"
-            }
-        |> Game.addConnection
-            { from = sleepingQuarters
-            , to = commonRoom
-            , name = "Carl"
-            , description = "Ladder to Common Room"
-            }
-        |> Game.addConnection
-            { from = sleepingQuarters
-            , to = commonRoom
-            , name = "Carl"
-            , description = "Ladder to Common Room"
-            }
-        |> Game.addConnection
-            { from = sleepingQuarters
-            , to = commonRoom
-            , name = "Carl"
-            , description = "Ladder to Common Room"
-            }
-        |> Game.addConnection
-            { from = sleepingQuarters
-            , to = commonRoom
-            , name = "Carl"
-            , description = "Ladder to Common Room"
+            , description = "Ladder to Cockpit"
             }
         |> Game.addConnection
             { from = sleepingQuarters
@@ -101,12 +71,18 @@ init _ =
             , description = "Ladder to Engine Room"
             }
         |> Game.addConnection
+            { from = sleepingQuarters
+            , to = commonRoom
+            , name = "Ladder Up"
+            , description = "Ladder to Common Room"
+            }
+        |> Game.addConnection
             { from = engineRoom
             , to = sleepingQuarters
             , name = "Ladder Up"
             , description = "Ladder to Sleeping Quarters"
             }
-        |> Game.init sleepingQuarters
+        |> Game.init commonRoom
     , Cmd.none
     )
 

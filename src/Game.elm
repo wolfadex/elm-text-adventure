@@ -1,10 +1,10 @@
 module Game exposing
     ( Game
     , Msg(..)
+    , View(..)
     , addConnection
     , addRoom
     , describe
-    , getConnections
     , getCurrentRoom
     , init
     , makeGame
@@ -73,8 +73,15 @@ type alias Game =
     , name : String
     , buildId : Int
     , currentRoom : RoomId
-    , currentDescription : String
+    , viewing : View
     }
+
+
+type View
+    = RoomDescription
+    | RoomExits
+    | RoomInventory
+    | PersonInventory
 
 
 type alias Connection =
@@ -102,7 +109,7 @@ makeGame name =
     , name = name
     , buildId = 0
     , currentRoom = RoomId -1
-    , currentDescription = ""
+    , viewing = RoomDescription
     }
 
 
@@ -175,33 +182,23 @@ addConnection { from, to, name, description } ({ rooms } as game) =
     }
 
 
-getConnections : { a | connections : List Connection } -> List Connection
-getConnections { connections } =
-    connections
-
-
 init : RoomId -> Game -> Game
 init initialRoom game =
-    let
-        gameWithInitialRoom =
-            { game
-                | currentRoom = initialRoom
-            }
-    in
-    { gameWithInitialRoom
-        | currentDescription =
-            gameWithInitialRoom
-                |> getCurrentRoom
-                |> describe
+    { game
+        | currentRoom = initialRoom
     }
 
 
 type Msg
-    = DescribeRoom
-    | ListInventory
-    | ItemsInRoom
+    = SetView View
+    | MoveRoom RoomId
 
 
 update : Msg -> Game -> ( Game, Cmd Msg )
 update msg game =
-    ( game, Cmd.none )
+    case msg of
+        SetView v ->
+            ( { game | viewing = v }, Cmd.none )
+
+        MoveRoom nextRoom ->
+            ( { game | viewing = RoomDescription, currentRoom = nextRoom }, Cmd.none )
