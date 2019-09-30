@@ -2,11 +2,14 @@ module Game exposing
     ( Game
     , Msg(..)
     , View(..)
+    , Item(..)
     , addConnection
     , addRoom
-    , describe
+    , addItemToRoom
+    , createTool
+    , createContainer
     , getCurrentRoom
-    , init
+    , finalize
     , makeGame
     , thingName
     , update
@@ -44,6 +47,7 @@ type alias ToolData =
 type alias ContainerData =
     { description : String
     , name : String
+    , contents : Set Id
     }
 
 
@@ -95,11 +99,6 @@ type alias Connection =
 type Locked
     = Locked
     | Unlocked
-
-
-describe : { a | description : String } -> String
-describe { description } =
-    description
 
 
 makeGame : Name -> Game
@@ -182,8 +181,8 @@ addConnection { from, to, name, description } ({ rooms } as game) =
     }
 
 
-init : RoomId -> Game -> Game
-init initialRoom game =
+finalize : RoomId -> Game -> Game
+finalize initialRoom game =
     { game
         | currentRoom = initialRoom
     }
@@ -202,3 +201,54 @@ update msg game =
 
         MoveRoom nextRoom ->
             ( { game | viewing = RoomDescription, currentRoom = nextRoom }, Cmd.none )
+
+
+createTool : String -> String -> Game -> ( ItemId, Game )
+createTool name description ({ buildId, items } as game) =
+    let
+        item =
+            Tool { name = name, description = description }
+
+    in
+    ( ItemId buildId
+    , { game
+        | items =
+            Dict.insert buildId item items
+        , buildId = buildId + 1
+      }
+    )
+
+
+createContainer : String -> String -> Game -> ( ItemId, Game )
+createContainer name description ({ buildId, items } as game) =
+    let
+        item =
+            Container { name = name, description = description, contents = Set.empty }
+
+    in
+    ( ItemId buildId
+    , { game
+        | items =
+            Dict.insert buildId item items
+        , buildId = buildId + 1
+      }
+    )
+    
+
+
+addItemToRoom : RoomId -> ( ItemId, Game ) -> Game
+addItemToRoom (RoomId roomId) ( (ItemId itemId), { rooms } as game ) =
+    { game |
+        rooms =
+            Dict.update
+                roomId
+                (\maybeRoom ->
+                    case maybeRoom of
+                        Nothing ->
+                            Nothing
+
+                        Just ({ contents } as room) ->
+                            Just { room | contents = Set.insert itemId contents }
+                )
+                rooms
+    }

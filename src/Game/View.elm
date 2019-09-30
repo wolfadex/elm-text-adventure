@@ -1,27 +1,29 @@
 module Game.View exposing (program)
 
 import Browser exposing (Document)
+import Dict
+import Set
 import Element exposing (Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
-import Game exposing (Game, Msg(..), View(..))
+import Game exposing (Game, Msg(..), View(..), Item(..))
 
 
-program : String -> Game -> Program () Game Game.Msg
-program name init =
+program : Game -> Program () Game Game.Msg
+program game =
     Browser.document
-        { init = \_ -> ( init, Cmd.none )
-        , view = view name
+        { init = \_ -> ( game, Cmd.none )
+        , view = view
         , update = Game.update
         , subscriptions = \_ -> Sub.none    
         }
 
 
-view : String -> Game -> Document Msg
-view name game =
-    { title = name
+view : Game -> Document Msg
+view game =
+    { title = game.name
     , body =
         [ Element.layout
             [ Element.width Element.fill
@@ -72,7 +74,7 @@ viewGame game =
                         RoomDescription ->
                             game
                                 |> Game.getCurrentRoom
-                                |> Game.describe
+                                |> .description
                                 |> Element.text
                                 |> List.singleton
                                 |> Element.paragraph
@@ -87,7 +89,37 @@ viewGame game =
                                         Element.wrappedRow
                                             []
                                             [ button name (MoveRoom to)
+                                            , Element.text ": "
                                             , Element.text description
+                                            ]
+                                    )
+                                |> Element.column
+                                    [ Element.spacing (scaled 1)
+                                    , Element.padding (scaled 1)
+                                    ]
+
+                        RoomInventory ->
+                            game
+                                |> Game.getCurrentRoom
+                                |> .contents
+                                |> (\ids -> Dict.filter (\id _ -> Set.member id ids) game.items)
+                                |> Dict.toList
+                                |> List.map
+                                    (\( _, item ) ->
+                                        let
+                                            ( n, d ) =
+                                                case item of
+                                                    Tool { name, description } ->
+                                                        ( name, description )
+
+                                                    Container { name, description } ->
+                                                        ( name, description )
+                                        in
+                                        Element.wrappedRow
+                                            []
+                                            [ Element.text n
+                                            , Element.text ": "
+                                            , Element.text d
                                             ]
                                     )
                                 |> Element.column

@@ -1,6 +1,5 @@
 module Main exposing (main)
 
-import Browser exposing (Document)
 import Game exposing (Game, addRoom, makeGame)
 import Game.View
 
@@ -35,44 +34,57 @@ main =
                 "The room is humming with the sounds of the engine. There are storage tanks for fuel and oxygen."
                 game4
     in
-    Game.View.program
-        "Text Adventure"
-        (game5
-            |> Game.addConnection
-                { from = cockpit
-                , to = commonRoom
-                , name = "Ladder Down"
-                , description = "Ladder to Common Room"
-                }
-            |> Game.addConnection
-                { from = commonRoom
-                , to = sleepingQuarters
-                , name = "Ladder Down"
-                , description = "Ladder to Sleeping Quarters"
-                }
-            |> Game.addConnection
-                { from = commonRoom
-                , to = cockpit
-                , name = "Ladder Up"
-                , description = "Ladder to Cockpit"
-                }
-            |> Game.addConnection
-                { from = sleepingQuarters
-                , to = engineRoom
-                , name = "Ladder Down"
-                , description = "Ladder to Engine Room"
-                }
-            |> Game.addConnection
-                { from = sleepingQuarters
-                , to = commonRoom
-                , name = "Ladder Up"
-                , description = "Ladder to Common Room"
-                }
-            |> Game.addConnection
-                { from = engineRoom
-                , to = sleepingQuarters
-                , name = "Ladder Up"
-                , description = "Ladder to Sleeping Quarters"
-                }
-            |> Game.init commonRoom
-        )
+    game5
+        |> Game.addConnection
+            { from = cockpit
+            , to = commonRoom
+            , name = "Ladder Down"
+            , description = "Ladder to Common Room"
+            }
+        |> Game.addConnection
+            { from = commonRoom
+            , to = sleepingQuarters
+            , name = "Ladder Down"
+            , description = "Ladder to Sleeping Quarters"
+            }
+        |> Game.addConnection
+            { from = commonRoom
+            , to = cockpit
+            , name = "Ladder Up"
+            , description = "Ladder to Cockpit"
+            }
+        |> Game.addConnection
+            { from = sleepingQuarters
+            , to = engineRoom
+            , name = "Ladder Down"
+            , description = "Ladder to Engine Room"
+            }
+        |> Game.addConnection
+            { from = sleepingQuarters
+            , to = commonRoom
+            , name = "Ladder Up"
+            , description = "Ladder to Common Room"
+            }
+        |> Game.addConnection
+            { from = engineRoom
+            , to = sleepingQuarters
+            , name = "Ladder Up"
+            , description = "Ladder to Sleeping Quarters"
+            }
+        |> Game.createTool
+                "Bloody Knife"
+                "An ancient looking knife with fresh blood on it."
+        |> Game.addItemToRoom
+            cockpit
+        |> Game.createTool
+                "Fork"
+                "Your standard fork."
+        |> Game.addItemToRoom
+            commonRoom
+        |> Game.createTool
+                "Spoon"
+                "Your standard spoon."
+        |> Game.addItemToRoom
+            commonRoom
+        |> Game.finalize commonRoom
+        |> Game.View.program
