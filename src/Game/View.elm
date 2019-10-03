@@ -61,12 +61,7 @@ viewGame game =
                 [ Font.underline
                 , Element.padding <| scaled 1
                 ]
-        , Element.el
-            [ Border.color (Element.rgb 0 0 0)
-            , Border.width 1
-            , Element.width Element.fill
-            ]
-            Element.none
+        , spacer
         , game
             |> .viewing
             |> (\v ->
@@ -130,12 +125,7 @@ viewGame game =
                         _ ->
                             Debug.todo (Debug.toString v)
                 )
-        , Element.el
-            [ Border.color (Element.rgb 0 0 0)
-            , Border.width 1
-            , Element.width Element.fill
-            ]
-            Element.none
+        , spacer
         , Element.wrappedRow
             [ Element.spacing <| scaled 1
             , Element.padding <| scaled 1
@@ -145,7 +135,26 @@ viewGame game =
             , button "Items in Room" (SetView RoomInventory)
             , button "Exits" (SetView RoomExits)
             ]
+        , spacer
+        , game
+            |> .log
+            |> List.map (\log -> Element.paragraph [] [ Element.text log ])
+            |> Element.column
+                [ Element.spacing <| scaled 1
+                , Element.padding <| scaled 1
+                ]
+
         ]
+
+
+spacer : Element msg
+spacer =
+    Element.el
+        [ Border.color (Element.rgb 0 0 0)
+        , Border.width 1
+        , Element.width Element.fill
+        ]
+        Element.none
 
 
 button : String -> Msg -> Element Msg

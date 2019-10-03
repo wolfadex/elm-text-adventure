@@ -72,18 +72,15 @@ main =
             , description = "Ladder to Sleeping Quarters"
             }
         |> Game.createTool
-                "Bloody Knife"
-                "An ancient looking knife with fresh blood on it."
+            "Bloody Knife"
+            "An acient blade covered in blood. The blood is still warm."
+            (\g -> g)
         |> Game.addItemToRoom
             cockpit
         |> Game.createTool
-                "Fork"
-                "Your standard fork."
-        |> Game.addItemToRoom
-            commonRoom
-        |> Game.createTool
-                "Spoon"
-                "Your standard spoon."
+            "Fork"
+            "Your standard fork."
+            identity
         |> Game.addItemToRoom
             commonRoom
         |> Game.finalize commonRoom

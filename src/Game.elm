@@ -1,15 +1,15 @@
 module Game exposing
     ( Game
+    , Item(..)
     , Msg(..)
     , View(..)
-    , Item(..)
     , addConnection
-    , addRoom
     , addItemToRoom
-    , createTool
+    , addRoom
     , createContainer
-    , getCurrentRoom
+    , createTool
     , finalize
+    , getCurrentRoom
     , makeGame
     , thingName
     , update
@@ -32,15 +32,16 @@ type Item
     | Container ContainerData
 
 
-type alias Being =
-    { description : String
-    , name : String
-    }
+--type alias Being =
+--    { description : String
+--    , name : String
+--    }
 
 
 type alias ToolData =
     { description : String
     , name : String
+    , use : Game -> Game
     }
 
 
@@ -78,6 +79,7 @@ type alias Game =
     , buildId : Int
     , currentRoom : RoomId
     , viewing : View
+    , log : List String
     }
 
 
@@ -109,6 +111,7 @@ makeGame name =
     , buildId = 0
     , currentRoom = RoomId -1
     , viewing = RoomDescription
+    , log = []
     }
 
 
@@ -160,22 +163,18 @@ addConnection { from, to, name, description } ({ rooms } as game) =
                     RoomId id ->
                         id
                 )
-                (\maybeRoom ->
-                    case maybeRoom of
-                        Nothing ->
-                            Nothing
-
-                        Just ({ connections } as room) ->
-                            Just
-                                { room
-                                    | connections =
-                                        { name = name
-                                        , description = description
-                                        , to = to
-                                        , locked = Unlocked
-                                        }
-                                            :: connections
+                (Maybe.map
+                    (\({ connections } as room) ->
+                        { room
+                            | connections =
+                                { name = name
+                                , description = description
+                                , to = to
+                                , locked = Unlocked
                                 }
+                                    :: connections
+                        }
+                    )
                 )
                 rooms
     }
@@ -203,12 +202,15 @@ update msg game =
             ( { game | viewing = RoomDescription, currentRoom = nextRoom }, Cmd.none )
 
 
-createTool : String -> String -> Game -> ( ItemId, Game )
-createTool name description ({ buildId, items } as game) =
+createTool : String -> String -> (Game -> Game) -> Game -> ( ItemId, Game )
+createTool name description use ({ buildId, items } as game) =
     let
         item =
-            Tool { name = name, description = description }
-
+            Tool
+                { name = name
+                , description = description
+                , use = use
+                }
     in
     ( ItemId buildId
     , { game
@@ -224,7 +226,6 @@ createContainer name description ({ buildId, items } as game) =
     let
         item =
             Container { name = name, description = description, contents = Set.empty }
-
     in
     ( ItemId buildId
     , { game
@@ -233,22 +234,18 @@ createContainer name description ({ buildId, items } as game) =
         , buildId = buildId + 1
       }
     )
-    
 
 
 addItemToRoom : RoomId -> ( ItemId, Game ) -> Game
-addItemToRoom (RoomId roomId) ( (ItemId itemId), { rooms } as game ) =
-    { game |
-        rooms =
+addItemToRoom (RoomId roomId) ( (ItemId itemId), ({ rooms } as game) ) =
+    { game
+        | rooms =
             Dict.update
                 roomId
-                (\maybeRoom ->
-                    case maybeRoom of
-                        Nothing ->
-                            Nothing
-
-                        Just ({ contents } as room) ->
-                            Just { room | contents = Set.insert itemId contents }
+                (Maybe.map
+                    (\({ contents } as room) ->
+                        { room | contents = Set.insert itemId contents }
+                    )
                 )
                 rooms
     }
