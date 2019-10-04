@@ -256,6 +256,12 @@ update msg game =
                 itemName =
                     Dict.get item game.items
                         |> getItemName
+
+
+                roomName =
+                    Dict.get roomId game.rooms
+                        |> Maybe.withDefault fallbackRoom
+                        |> .name
             in
             ( { game 
                 | rooms =
@@ -269,7 +275,7 @@ update msg game =
                         game.rooms
                 , inventory = Set.remove item game.inventory
               }
-                |> addLog ("Dropped up " ++ itemName)
+                |> addLog ("Dropped " ++ itemName ++ " in " ++ roomName)
             , Cmd.none
             )
 

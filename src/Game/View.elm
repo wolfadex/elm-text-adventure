@@ -124,6 +124,7 @@ viewGame game =
                                         Element.wrappedRow
                                             []
                                             [ button n (PickUpItem id)
+                                            , buttonSpacer
                                             , Element.text d
                                             ]
                                     )
@@ -200,13 +201,15 @@ button label action =
     Input.button
         [ Border.shadow
             { offset = ( 1, 1 )
-            , size = 2
-            , blur = 4
-            , color = Element.rgb 0.4 0.4 0.8
+            , size = 1
+            , blur = 2
+            --, color = Element.rgb 0.4 0.4 0.8
+            , color = Element.rgba 1 1 1 0.5
             }
         , Element.paddingXY 3 1
-        , Background.color (Element.rgb 1 1 1)
-        , Font.color (Element.rgb 0.2 0.2 0.2)
+        --, Background.color (Element.rgb 1 1 1)
+        , Background.color (Element.rgb 0.4 0.4 0.8)
+        --, Font.color (Element.rgb 0.2 0.2 0.2)
         ]
         { onPress = Just action
         , label = Element.text label
