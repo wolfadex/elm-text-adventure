@@ -44,6 +44,7 @@ viewGame game =
             (Element.fill
                 |> Element.maximum (scaled 17)
             )
+        , Element.height Element.fill
         , Border.shadow
             { offset = ( 2, 2 )
             , size = 1
@@ -53,7 +54,17 @@ viewGame game =
         , Background.color <| Element.rgb 0.15 0.15 0.15
         , Font.color <| Element.rgb 0.8 0.8 0.8
         ]
-        [ game
+        [ Element.wrappedRow
+            [ Element.spacing <| scaled 1
+            , Element.padding <| scaled 1
+            ]
+            [ button "Describe Room" (SetView RoomDescription)
+            , button "List Inventory" (SetView PersonInventory)
+            , button "Items in Room" (SetView RoomInventory)
+            , button "Exits" (SetView RoomExits)
+            ]
+        , spacer
+        , game
             |> Game.getCurrentRoom
             |> Game.thingName
             |> Element.text
@@ -80,11 +91,11 @@ viewGame game =
                                 |> Game.getCurrentRoom
                                 |> .connections
                                 |> List.map
-                                    (\{ name, description, to } ->
+                                    (\{ name, description, to, message } ->
                                         Element.wrappedRow
                                             []
-                                            [ button name (MoveRoom to)
-                                            , Element.text ": "
+                                            [ button name (MoveRoom to message)
+                                            , buttonSpacer
                                             , Element.text description
                                             ]
                                     )
@@ -100,7 +111,7 @@ viewGame game =
                                 |> (\ids -> Dict.filter (\id _ -> Set.member id ids) game.items)
                                 |> Dict.toList
                                 |> List.map
-                                    (\( _, item ) ->
+                                    (\( id, item ) ->
                                         let
                                             ( n, d ) =
                                                 case item of
@@ -112,8 +123,7 @@ viewGame game =
                                         in
                                         Element.wrappedRow
                                             []
-                                            [ Element.text n
-                                            , Element.text ": "
+                                            [ button n (PickUpItem id)
                                             , Element.text d
                                             ]
                                     )
@@ -122,26 +132,54 @@ viewGame game =
                                     , Element.padding (scaled 1)
                                     ]
 
-                        _ ->
-                            Debug.todo (Debug.toString v)
+                        PersonInventory ->
+                            game
+                                |> .inventory
+                                |> (\ids -> Dict.filter (\id _ -> Set.member id ids) game.items)
+                                |> Dict.toList
+                                |> List.map
+                                    (\( id, item ) ->
+                                        let
+                                            ( n, d ) =
+                                                case item of
+                                                    Tool { name, description } ->
+                                                        ( name, description )
+
+                                                    Container { name, description } ->
+                                                        ( name, description )
+                                        in
+                                        Element.wrappedRow
+                                            []
+                                            [ button "Drop" (DropItem id)
+                                            , buttonSpacer
+                                            , button "Use" (UseItem id)
+                                            , buttonSpacer
+                                            , Element.text <| n ++ ":"
+                                            , buttonSpacer
+                                            , Element.text d
+                                            ]
+                                    )
+                                |> Element.column
+                                    [ Element.spacing (scaled 1)
+                                    , Element.padding (scaled 1)
+                                    ]
                 )
-        , spacer
-        , Element.wrappedRow
-            [ Element.spacing <| scaled 1
-            , Element.padding <| scaled 1
-            ]
-            [ button "Describe Room" (SetView RoomDescription)
-            , button "List Inventory" (SetView PersonInventory)
-            , button "Items in Room" (SetView RoomInventory)
-            , button "Exits" (SetView RoomExits)
-            ]
         , spacer
         , game
             |> .log
             |> List.map (\log -> Element.paragraph [] [ Element.text log ])
+            |> List.intersperse
+                (Element.el
+                    [ Element.width Element.fill
+                    , Border.width 1
+                    , Border.color (Element.rgb 0.4 0.4 0.4)
+                    ]
+                    Element.none
+                )
             |> Element.column
                 [ Element.spacing <| scaled 1
                 , Element.padding <| scaled 1
+                , Element.scrollbarY
                 ]
 
         ]
@@ -150,8 +188,8 @@ viewGame game =
 spacer : Element msg
 spacer =
     Element.el
-        [ Border.color (Element.rgb 0 0 0)
-        , Border.width 1
+        [ Border.color (Element.rgb 0.07 0.07 0.07)
+        , Border.width 3
         , Element.width Element.fill
         ]
         Element.none
@@ -160,10 +198,26 @@ spacer =
 button : String -> Msg -> Element Msg
 button label action =
     Input.button
-        []
+        [ Border.shadow
+            { offset = ( 1, 1 )
+            , size = 2
+            , blur = 4
+            , color = Element.rgb 0.4 0.4 0.8
+            }
+        , Element.paddingXY 3 1
+        , Background.color (Element.rgb 1 1 1)
+        , Font.color (Element.rgb 0.2 0.2 0.2)
+        ]
         { onPress = Just action
-        , label = Element.text ("[ " ++ label ++ " ]")
+        , label = Element.text label
         }
+
+
+buttonSpacer : Element msg
+buttonSpacer =
+    Element.el
+        [ Element.width <| Element.px (scaled 1) ]
+        Element.none
 
 
 scaled : Int -> Int

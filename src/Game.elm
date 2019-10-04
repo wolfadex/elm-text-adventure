@@ -13,6 +13,8 @@ module Game exposing
     , makeGame
     , thingName
     , update
+    , setRoom
+    , deleteItem
     )
 
 import Dict exposing (Dict)
@@ -41,7 +43,7 @@ type Item
 type alias ToolData =
     { description : String
     , name : String
-    , use : Game -> Game
+    , use : ItemUse
     }
 
 
@@ -50,6 +52,10 @@ type alias ContainerData =
     , name : String
     , contents : Set Id
     }
+
+
+type alias ItemUse =
+    ItemId -> Game -> ( Game, Message )
 
 
 type RoomId
@@ -72,6 +78,10 @@ type alias Description =
     String
 
 
+type alias Message =
+    String
+
+
 type alias Game =
     { rooms : Dict Id Room
     , items : Dict Id Item
@@ -80,6 +90,7 @@ type alias Game =
     , currentRoom : RoomId
     , viewing : View
     , log : List String
+    , inventory : Set Id
     }
 
 
@@ -95,6 +106,7 @@ type alias Connection =
     , locked : Locked
     , name : String
     , description : String
+    , message : String
     }
 
 
@@ -112,6 +124,7 @@ makeGame name =
     , currentRoom = RoomId -1
     , viewing = RoomDescription
     , log = []
+    , inventory = Set.empty
     }
 
 
@@ -143,7 +156,7 @@ getCurrentRoom { rooms, currentRoom } =
 fallbackRoom : Room
 fallbackRoom =
     { name = "The Void"
-    , description = "Some how you've found yourself in an empty void. You see nothing. You feel nothing. You smell nothing. Your mind starts to crumble under the nothingness."
+    , description = "You see nothing. You feel nothing. You smell nothing. Your mind starts to crumble under the nothingness."
     , contents = Set.empty
     , connections = []
     }
@@ -154,8 +167,8 @@ thingName { name } =
     name
 
 
-addConnection : { from : RoomId, to : RoomId, name : String, description : String } -> Game -> Game
-addConnection { from, to, name, description } ({ rooms } as game) =
+addConnection : { from : RoomId, to : RoomId, name : String, description : String, message : String } -> Game -> Game
+addConnection { from, to, name, description, message } ({ rooms } as game) =
     { game
         | rooms =
             Dict.update
@@ -171,6 +184,7 @@ addConnection { from, to, name, description } ({ rooms } as game) =
                                 , description = description
                                 , to = to
                                 , locked = Unlocked
+                                , message = message
                                 }
                                     :: connections
                         }
@@ -180,16 +194,20 @@ addConnection { from, to, name, description } ({ rooms } as game) =
     }
 
 
-finalize : RoomId -> Game -> Game
-finalize initialRoom game =
+finalize : RoomId -> Message -> Game -> Game
+finalize initialRoom initialMessage game =
     { game
         | currentRoom = initialRoom
+        , log = [ initialMessage ]
     }
 
 
 type Msg
     = SetView View
-    | MoveRoom RoomId
+    | MoveRoom RoomId Message
+    | PickUpItem Id
+    | DropItem Id
+    | UseItem Id
 
 
 update : Msg -> Game -> ( Game, Cmd Msg )
@@ -198,11 +216,102 @@ update msg game =
         SetView v ->
             ( { game | viewing = v }, Cmd.none )
 
-        MoveRoom nextRoom ->
-            ( { game | viewing = RoomDescription, currentRoom = nextRoom }, Cmd.none )
+        MoveRoom nextRoom message ->
+            ( game
+                |> setRoom nextRoom
+                |> addLog message
+            , Cmd.none
+            )
+
+        PickUpItem item ->
+            let
+                (RoomId roomId) =
+                    game.currentRoom
+
+                itemName =
+                    Dict.get item game.items
+                        |> getItemName
+            in
+            ( { game 
+                | rooms =
+                    Dict.update
+                        roomId
+                        (Maybe.map
+                            (\room ->
+                                { room | contents = Set.remove item room.contents }
+                            )
+                        )
+                        game.rooms
+                , inventory = Set.insert item game.inventory
+              }
+                |> addLog ("Picked up " ++ itemName)
+            , Cmd.none
+            )
+
+        DropItem item ->
+            let
+                (RoomId roomId) =
+                    game.currentRoom
+
+                itemName =
+                    Dict.get item game.items
+                        |> getItemName
+            in
+            ( { game 
+                | rooms =
+                    Dict.update
+                        roomId
+                        (Maybe.map
+                            (\room ->
+                                { room | contents = Set.insert item room.contents }
+                            )
+                        )
+                        game.rooms
+                , inventory = Set.remove item game.inventory
+              }
+                |> addLog ("Dropped up " ++ itemName)
+            , Cmd.none
+            )
+
+        UseItem item ->
+            let
+                toolUse =
+                    game.items
+                        |> Dict.get item
+                        |> (\i ->
+                                case i of
+                                    Just (Tool { use }) ->
+                                        use
+
+                                    _ ->
+                                        (\_ g -> ( g, "Nothing happens." ))
+                            )
+
+                ( nextGame, message ) =
+                    toolUse (ItemId item) game
+            in
+            ( addLog message nextGame, Cmd.none )
 
 
-createTool : String -> String -> (Game -> Game) -> Game -> ( ItemId, Game )
+getItemName : Maybe Item -> String
+getItemName item =
+    case item of
+        Just (Tool { name }) ->
+            name
+
+        Just (Container { name }) ->
+            name
+
+        Nothing ->
+            "Nothing"
+
+
+addLog : String -> { a | log : List String } -> { a | log : List String }
+addLog message ({ log } as data) =
+    { data | log = message :: List.take 10 log }
+
+
+createTool : Name -> Description -> ItemUse -> Game -> ( ItemId, Game )
 createTool name description use ({ buildId, items } as game) =
     let
         item =
@@ -221,7 +330,7 @@ createTool name description use ({ buildId, items } as game) =
     )
 
 
-createContainer : String -> String -> Game -> ( ItemId, Game )
+createContainer : Name -> Description -> Game -> ( ItemId, Game )
 createContainer name description ({ buildId, items } as game) =
     let
         item =
@@ -248,4 +357,21 @@ addItemToRoom (RoomId roomId) ( (ItemId itemId), ({ rooms } as game) ) =
                     )
                 )
                 rooms
+    }
+
+
+setRoom : RoomId -> Game -> Game
+setRoom room game =
+    { game | viewing = RoomDescription, currentRoom = room }
+
+
+deleteItem : ItemId -> Game -> Game
+deleteItem (ItemId id) game =
+    { game
+        | items = Dict.remove id game.items
+        , inventory = Set.remove id game.inventory
+        , rooms =
+            Dict.map
+                (\_ data -> { data | contents = Set.remove id data.contents })
+                game.rooms
     }

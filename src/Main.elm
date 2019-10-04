@@ -40,48 +40,73 @@ main =
             , to = commonRoom
             , name = "Ladder Down"
             , description = "Ladder to Common Room"
+            , message = "You climb down the ladder to the common room."
             }
         |> Game.addConnection
             { from = commonRoom
             , to = sleepingQuarters
             , name = "Ladder Down"
             , description = "Ladder to Sleeping Quarters"
+            , message = "You climb down the ladder to the sleeping quarters." 
             }
         |> Game.addConnection
             { from = commonRoom
             , to = cockpit
             , name = "Ladder Up"
             , description = "Ladder to Cockpit"
+            , message = "You climb up the ladder to the cockpit."
             }
         |> Game.addConnection
             { from = sleepingQuarters
             , to = engineRoom
             , name = "Ladder Down"
             , description = "Ladder to Engine Room"
+            , message = "You climb down the ladder to the engine room."
             }
         |> Game.addConnection
             { from = sleepingQuarters
             , to = commonRoom
             , name = "Ladder Up"
             , description = "Ladder to Common Room"
+            , message = "You climb up the ladder to the common room."
             }
         |> Game.addConnection
             { from = engineRoom
             , to = sleepingQuarters
             , name = "Ladder Up"
             , description = "Ladder to Sleeping Quarters"
+            , message = "You climb up the ladder to the sleeping quarters."
             }
         |> Game.createTool
             "Bloody Knife"
             "An acient blade covered in blood. The blood is still warm."
-            (\g -> g)
+            (\item g ->
+                let
+                    ( endRoom, finalG ) =
+                        Game.addRoom
+                            "The Void"
+                            "You see nothing. You feel nothing. You smell nothing. Your mind starts to crumble under the nothingness."
+                            g
+                in
+                ( finalG
+                    |> Game.deleteItem item
+                    |> Game.setRoom endRoom
+                , """You wave the knife through the air. It seems to cut through space, opening a passage to another plane.
+
+A long, spindly pale arm reaches through and grabs you, pulling you into the nothingness . . ."""
+                )
+            )
         |> Game.addItemToRoom
             cockpit
         |> Game.createTool
             "Fork"
             "Your standard fork."
-            identity
+            (\_ g -> ( g, "You wave the fork in the air, like you just don't care." ))
         |> Game.addItemToRoom
             commonRoom
-        |> Game.finalize commonRoom
+        |> Game.finalize
+            commonRoom
+            """You wake up in a blurry haze. You seem to be on a spaceship but you have no idea how you got there.
+
+Last thing you remember, you were drinking with your friends in a British pub."""
         |> Game.View.program
