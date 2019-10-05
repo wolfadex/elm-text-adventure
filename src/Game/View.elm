@@ -8,15 +8,16 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
-import Game exposing (Game, Msg(..), View(..), Item(..))
+import Game
+import Game.Internal exposing (Game, Msg(..), View(..), Item(..))
 
 
-program : Game -> Program () Game Game.Msg
+program : Game -> Program () Game Msg
 program game =
     Browser.document
         { init = \_ -> ( game, Cmd.none )
         , view = view
-        , update = Game.update
+        , update = Game.Internal.update
         , subscriptions = \_ -> Sub.none    
         }
 
