@@ -1,8 +1,6 @@
 module Game exposing
     ( Game
-    , Item(..)
-    , Msg(..)
-    , View(..)
+    , Msg
     , addConnection
     , addItemToRoom
     , addRoom
@@ -11,110 +9,113 @@ module Game exposing
     , finalize
     , getCurrentRoom
     , makeGame
-    , thingName
-    , update
     , setRoom
     , deleteItem
     )
 
+
+{-| The following is a basic game with 2 rooms and connections to move between them.
+
+    import Game
+    import Game.View
+
+    {-| The most basic game possible
+    -}
+    main =
+        let
+            initialGame =
+                Game.makeGame "Simple Game"
+
+            ( bedroom, initialGame ) =
+                Game.addRoom
+                    "Bedroom"
+                    "A simple bedroom. Just a bed and 3 drawer dresser."
+
+            ( bathroom, initialGame ) =
+                Game.addRoom
+                    "Bathroom"
+                    "A simple bathroom. Just a toilet and sink."
+        in
+        Gma.makeGame "Sample Game"
+            |> Game.addConnection
+                { from = bedroom
+                , to = bathroom
+                , name = "Bathroom Door"
+                , description = "Door to the bathroom."
+                , message = "You walk to the bathroom."
+                }
+            |> Game.addConnection
+                { from = bathroom
+                , to = bedroom
+                , name = "Bedroom Door"
+                , description = "Door to the bedroom."
+                , message = "You walk to the bedroom."
+                }
+            |> Game.finalize
+                bedroom
+                "You wake up in your bedroom."
+            |> Game.view.program
+
+# Types for makeing your `main` function typed
+
+@docs Game
+@docs Msg
+
+# Game building functions
+
+## General
+
+@docs makeGame
+@docs finalize
+
+## Rooms
+
+@docs addRoom
+@docs getCurrentRoom
+@docs setRoom
+@docs addConnection
+
+## Items
+
+@docs createTool
+@docs createContainer
+@docs addItemToRoom
+@docs deleteItem
+
+-}
+
 import Dict exposing (Dict)
 import Set exposing (Set)
+import Game.Internal exposing
+    ( Msg(..)
+    , Item(..)
+    , View(..)
+    , ItemUse
+    , ItemId(..)
+    , RoomId(..)
+    , Game
+    , Message
+    , Locked(..)
+    , Room
+    , Name
+    , Description
+    )
 
 
-type alias Room =
-    { description : String
-    , name : String
-    , contents : Set Id
-    , connections : List Connection
-    }
-
-
-type Item
-    = Tool ToolData
-    | Container ContainerData
-
-
---type alias Being =
---    { description : String
---    , name : String
---    }
-
-
-type alias ToolData =
-    { description : String
-    , name : String
-    , use : ItemUse
-    }
-
-
-type alias ContainerData =
-    { description : String
-    , name : String
-    , contents : Set Id
-    }
-
-
-type alias ItemUse =
-    ItemId -> Game -> ( Game, Message )
-
-
-type RoomId
-    = RoomId Id
-
-
-type ItemId
-    = ItemId Id
-
-
-type alias Id =
-    Int
-
-
-type alias Name =
-    String
-
-
-type alias Description =
-    String
-
-
-type alias Message =
-    String
-
-
+{-| -}
 type alias Game =
-    { rooms : Dict Id Room
-    , items : Dict Id Item
-    , name : String
-    , buildId : Int
-    , currentRoom : RoomId
-    , viewing : View
-    , log : List String
-    , inventory : Set Id
-    }
+    Game.Internal.Game
 
 
-type View
-    = RoomDescription
-    | RoomExits
-    | RoomInventory
-    | PersonInventory
+{-| -}
+type alias Msg =
+    Game.Internal.Msg
 
 
-type alias Connection =
-    { to : RoomId
-    , locked : Locked
-    , name : String
-    , description : String
-    , message : String
-    }
+{-| Takes a name and creates your new game.
 
-
-type Locked
-    = Locked
-    | Unlocked
-
-
+    makeGame "Your Cool Adventure"
+-}
 makeGame : Name -> Game
 makeGame name =
     { rooms = Dict.empty
@@ -128,6 +129,10 @@ makeGame name =
     }
 
 
+{-| Adds a new room to your game. This only creates the room and not any connections between rooms.
+
+    addRoom "Name" "Description" yourGame
+-}
 addRoom : Name -> Description -> Game -> ( RoomId, Game )
 addRoom name description ({ buildId, rooms } as game) =
     ( RoomId buildId
@@ -146,27 +151,35 @@ addRoom name description ({ buildId, rooms } as game) =
     )
 
 
-getCurrentRoom : Game -> Room
-getCurrentRoom { rooms, currentRoom } =
-    case currentRoom of
-        RoomId id ->
-            Dict.get id rooms |> Maybe.withDefault fallbackRoom
+{-| Gets the current room the player is in. Useful for knowing where the player is when they use an item.
+
+    getCurrentRoom yourGame == someRoom
+-}
+getCurrentRoom : Game -> RoomId
+getCurrentRoom { currentRoom } =
+    currentRoom
 
 
-fallbackRoom : Room
-fallbackRoom =
-    { name = "The Void"
-    , description = "You see nothing. You feel nothing. You smell nothing. Your mind starts to crumble under the nothingness."
-    , contents = Set.empty
-    , connections = []
-    }
+{-| Creates a one-way connection between 2 rooms.
 
+In order for to get from room A to room B and back, you need to create 2 connections.
 
-thingName : { a | name : String } -> String
-thingName { name } =
-    name
-
-
+    existingGameWithRooms
+        |> Game.addConnection
+            { from = roomA
+            , to = roomB
+            , name = "Door"
+            , description = "Door to Room B."
+            , message = "You walk to Room B."
+            }
+        |> Game.addConnection
+            { from = roomB
+            , to = roomA
+            , name = "Door"
+            , description = "Door to Room A."
+            , message = "You walk to Room A."
+            }
+-}
 addConnection : { from : RoomId, to : RoomId, name : String, description : String, message : String } -> Game -> Game
 addConnection { from, to, name, description, message } ({ rooms } as game) =
     { game
@@ -194,6 +207,10 @@ addConnection { from, to, name, description, message } ({ rooms } as game) =
     }
 
 
+{-| Finalizes your game by setting the initial room and the first message the player sees.
+
+    finalize startingRoom "Welcome message to set the scene" yourGame
+-}
 finalize : RoomId -> Message -> Game -> Game
 finalize initialRoom initialMessage game =
     { game
@@ -202,115 +219,18 @@ finalize initialRoom initialMessage game =
     }
 
 
-type Msg
-    = SetView View
-    | MoveRoom RoomId Message
-    | PickUpItem Id
-    | DropItem Id
-    | UseItem Id
+{-| Creates a tool item. A tool is any item that can be used such as a fork, sword, key, or potato.
 
+    createTool
+        "Name"
+        "Description"
+        (\itemId gameState ->
+            ( updatedGameState, "Message describing what happened" )
+        )
+        yourGame
 
-update : Msg -> Game -> ( Game, Cmd Msg )
-update msg game =
-    case msg of
-        SetView v ->
-            ( { game | viewing = v }, Cmd.none )
-
-        MoveRoom nextRoom message ->
-            ( game
-                |> setRoom nextRoom
-                |> addLog message
-            , Cmd.none
-            )
-
-        PickUpItem item ->
-            let
-                (RoomId roomId) =
-                    game.currentRoom
-
-                itemName =
-                    Dict.get item game.items
-                        |> getItemName
-            in
-            ( { game 
-                | rooms =
-                    Dict.update
-                        roomId
-                        (Maybe.map
-                            (\room ->
-                                { room | contents = Set.remove item room.contents }
-                            )
-                        )
-                        game.rooms
-                , inventory = Set.insert item game.inventory
-              }
-                |> addLog ("Picked up " ++ itemName)
-            , Cmd.none
-            )
-
-        DropItem item ->
-            let
-                (RoomId roomId) =
-                    game.currentRoom
-
-                itemName =
-                    Dict.get item game.items
-                        |> getItemName
-            in
-            ( { game 
-                | rooms =
-                    Dict.update
-                        roomId
-                        (Maybe.map
-                            (\room ->
-                                { room | contents = Set.insert item room.contents }
-                            )
-                        )
-                        game.rooms
-                , inventory = Set.remove item game.inventory
-              }
-                |> addLog ("Dropped up " ++ itemName)
-            , Cmd.none
-            )
-
-        UseItem item ->
-            let
-                toolUse =
-                    game.items
-                        |> Dict.get item
-                        |> (\i ->
-                                case i of
-                                    Just (Tool { use }) ->
-                                        use
-
-                                    _ ->
-                                        (\_ g -> ( g, "Nothing happens." ))
-                            )
-
-                ( nextGame, message ) =
-                    toolUse (ItemId item) game
-            in
-            ( addLog message nextGame, Cmd.none )
-
-
-getItemName : Maybe Item -> String
-getItemName item =
-    case item of
-        Just (Tool { name }) ->
-            name
-
-        Just (Container { name }) ->
-            name
-
-        Nothing ->
-            "Nothing"
-
-
-addLog : String -> { a | log : List String } -> { a | log : List String }
-addLog message ({ log } as data) =
-    { data | log = message :: List.take 10 log }
-
-
+ItemUse is how your item affects the game world, anything from opening a door to teleporting the player.
+-}
 createTool : Name -> Description -> ItemUse -> Game -> ( ItemId, Game )
 createTool name description use ({ buildId, items } as game) =
     let
@@ -330,6 +250,10 @@ createTool name description use ({ buildId, items } as game) =
     )
 
 
+{-| Creates a container that can be placed in a room or on your player.
+
+    createContainer "Name" "Description" yourGame
+-}
 createContainer : Name -> Description -> Game -> ( ItemId, Game )
 createContainer name description ({ buildId, items } as game) =
     let
@@ -345,6 +269,10 @@ createContainer name description ({ buildId, items } as game) =
     )
 
 
+{-| Adds the specified item to the game.
+
+    addItemToRoom room ( item, game )
+-}
 addItemToRoom : RoomId -> ( ItemId, Game ) -> Game
 addItemToRoom (RoomId roomId) ( (ItemId itemId), ({ rooms } as game) ) =
     { game
@@ -360,11 +288,19 @@ addItemToRoom (RoomId roomId) ( (ItemId itemId), ({ rooms } as game) ) =
     }
 
 
+{-| "Teleports" the player to the specified room.
+
+    setRoom someRoom yourGame
+-}
 setRoom : RoomId -> Game -> Game
-setRoom room game =
-    { game | viewing = RoomDescription, currentRoom = room }
+setRoom =
+    Game.Internal.setRoom
 
 
+{-| Removes the specified item from the game.
+
+    deleteItem itemToDelete yourGame
+-}
 deleteItem : ItemId -> Game -> Game
 deleteItem (ItemId id) game =
     { game
