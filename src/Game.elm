@@ -9,10 +9,80 @@ module Game exposing
     , finalize
     , getCurrentRoom
     , makeGame
-    , thingName
     , setRoom
     , deleteItem
     )
+
+
+{-| The following is a basic game with 2 rooms and connections to move between them.
+
+    import Game
+    import Game.View
+
+    {-| The most basic game possible
+    -}
+    main =
+        let
+            initialGame =
+                Game.makeGame "Simple Game"
+
+            ( bedroom, initialGame ) =
+                Game.addRoom
+                    "Bedroom"
+                    "A simple bedroom. Just a bed and 3 drawer dresser."
+
+            ( bathroom, initialGame ) =
+                Game.addRoom
+                    "Bathroom"
+                    "A simple bathroom. Just a toilet and sink."
+        in
+        Gma.makeGame "Sample Game"
+            |> Game.addConnection
+                { from = bedroom
+                , to = bathroom
+                , name = "Bathroom Door"
+                , description = "Door to the bathroom."
+                , message = "You walk to the bathroom."
+                }
+            |> Game.addConnection
+                { from = bathroom
+                , to = bedroom
+                , name = "Bedroom Door"
+                , description = "Door to the bedroom."
+                , message = "You walk to the bedroom."
+                }
+            |> Game.finalize
+                bedroom
+                "You wake up in your bedroom."
+            |> Game.view.program
+
+# Types for makeing your `main` function typed
+
+@docs Game
+@docs Msg
+
+# Game building functions
+
+## General
+
+@docs makeGame
+@docs finalize
+
+## Rooms
+
+@docs addRoom
+@docs getCurrentRoom
+@docs setRoom
+@docs addConnection
+
+## Items
+
+@docs createTool
+@docs createContainer
+@docs addItemToRoom
+@docs deleteItem
+
+-}
 
 import Dict exposing (Dict)
 import Set exposing (Set)
@@ -32,19 +102,20 @@ import Game.Internal exposing
     )
 
 
---type alias Being =
---    { description : String
---    , name : String
---    }
-
+{-| -}
 type alias Game =
     Game.Internal.Game
 
 
+{-| -}
 type alias Msg =
     Game.Internal.Msg
 
 
+{-| Takes a name and creates your new game.
+
+    makeGame "Your Cool Adventure"
+-}
 makeGame : Name -> Game
 makeGame name =
     { rooms = Dict.empty
@@ -58,6 +129,10 @@ makeGame name =
     }
 
 
+{-| Adds a new room to your game. This only creates the room and not any connections between rooms.
+
+    addRoom "Name" "Description" yourGame
+-}
 addRoom : Name -> Description -> Game -> ( RoomId, Game )
 addRoom name description ({ buildId, rooms } as game) =
     ( RoomId buildId
@@ -76,18 +151,35 @@ addRoom name description ({ buildId, rooms } as game) =
     )
 
 
-getCurrentRoom : Game -> Room
-getCurrentRoom { rooms, currentRoom } =
-    case currentRoom of
-        RoomId id ->
-            Dict.get id rooms |> Maybe.withDefault Game.Internal.fallbackRoom
+{-| Gets the current room the player is in. Useful for knowing where the player is when they use an item.
+
+    getCurrentRoom yourGame == someRoom
+-}
+getCurrentRoom : Game -> RoomId
+getCurrentRoom { currentRoom } =
+    currentRoom
 
 
-thingName : { a | name : String } -> String
-thingName { name } =
-    name
+{-| Creates a one-way connection between 2 rooms.
 
+In order for to get from room A to room B and back, you need to create 2 connections.
 
+    existingGameWithRooms
+        |> Game.addConnection
+            { from = roomA
+            , to = roomB
+            , name = "Door"
+            , description = "Door to Room B."
+            , message = "You walk to Room B."
+            }
+        |> Game.addConnection
+            { from = roomB
+            , to = roomA
+            , name = "Door"
+            , description = "Door to Room A."
+            , message = "You walk to Room A."
+            }
+-}
 addConnection : { from : RoomId, to : RoomId, name : String, description : String, message : String } -> Game -> Game
 addConnection { from, to, name, description, message } ({ rooms } as game) =
     { game
@@ -115,6 +207,10 @@ addConnection { from, to, name, description, message } ({ rooms } as game) =
     }
 
 
+{-| Finalizes your game by setting the initial room and the first message the player sees.
+
+    finalize startingRoom "Welcome message to set the scene" yourGame
+-}
 finalize : RoomId -> Message -> Game -> Game
 finalize initialRoom initialMessage game =
     { game
@@ -123,6 +219,18 @@ finalize initialRoom initialMessage game =
     }
 
 
+{-| Creates a tool item. A tool is any item that can be used such as a fork, sword, key, or potato.
+
+    createTool
+        "Name"
+        "Description"
+        (\itemId gameState ->
+            ( updatedGameState, "Message describing what happened" )
+        )
+        yourGame
+
+ItemUse is how your item affects the game world, anything from opening a door to teleporting the player.
+-}
 createTool : Name -> Description -> ItemUse -> Game -> ( ItemId, Game )
 createTool name description use ({ buildId, items } as game) =
     let
@@ -142,6 +250,10 @@ createTool name description use ({ buildId, items } as game) =
     )
 
 
+{-| Creates a container that can be placed in a room or on your player.
+
+    createContainer "Name" "Description" yourGame
+-}
 createContainer : Name -> Description -> Game -> ( ItemId, Game )
 createContainer name description ({ buildId, items } as game) =
     let
@@ -157,6 +269,10 @@ createContainer name description ({ buildId, items } as game) =
     )
 
 
+{-| Adds the specified item to the game.
+
+    addItemToRoom room ( item, game )
+-}
 addItemToRoom : RoomId -> ( ItemId, Game ) -> Game
 addItemToRoom (RoomId roomId) ( (ItemId itemId), ({ rooms } as game) ) =
     { game
@@ -172,11 +288,19 @@ addItemToRoom (RoomId roomId) ( (ItemId itemId), ({ rooms } as game) ) =
     }
 
 
+{-| "Teleports" the player to the specified room.
+
+    setRoom someRoom yourGame
+-}
 setRoom : RoomId -> Game -> Game
 setRoom =
     Game.Internal.setRoom
 
 
+{-| Removes the specified item from the game.
+
+    deleteItem itemToDelete yourGame
+-}
 deleteItem : ItemId -> Game -> Game
 deleteItem (ItemId id) game =
     { game

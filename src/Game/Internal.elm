@@ -14,6 +14,7 @@ module Game.Internal exposing
     , update
     , setRoom
     , fallbackRoom
+    , getCurrentRoom
     )
 
 
@@ -238,6 +239,14 @@ fallbackRoom =
     , contents = Set.empty
     , connections = []
     }
+
+
+
+getCurrentRoom : Game -> Room
+getCurrentRoom { rooms, currentRoom } =
+    case currentRoom of
+        RoomId id ->
+            Dict.get id rooms |> Maybe.withDefault fallbackRoom
 
 
 ---- FUNCTIONS EXPORTED ALL THE WAY ----

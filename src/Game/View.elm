@@ -1,6 +1,24 @@
 module Game.View exposing (program)
 
-import Browser exposing (Document)
+
+{-| The program for playing your game.
+
+    import Game
+    import Game.View
+
+    {-| The most basic game possible
+    -}
+    main =
+        Gma.makeGame "Sample Game"
+            |> Game.view.program
+
+
+@docs program
+
+-}
+
+import Browser
+import Html exposing (Html)
 import Dict
 import Set
 import Element exposing (Element)
@@ -12,9 +30,11 @@ import Game
 import Game.Internal exposing (Game, Msg(..), View(..), Item(..))
 
 
+{-| Starts and displays your game.
+-}
 program : Game -> Program () Game Msg
 program game =
-    Browser.document
+    Browser.element
         { init = \_ -> ( game, Cmd.none )
         , view = view
         , update = Game.Internal.update
@@ -22,19 +42,14 @@ program game =
         }
 
 
-view : Game -> Document Msg
+view : Game -> Html Msg
 view game =
-    { title = game.name
-    , body =
-        [ Element.layout
-            [ Element.width Element.fill
-            , Element.height Element.fill
-            , Background.color <| Element.rgb 0.1 0.1 0.1
-            ]
-        <|
-            viewGame game
+    Element.layout
+        [ Element.width Element.fill
+        , Element.height Element.fill
+        , Background.color <| Element.rgb 0.1 0.1 0.1
         ]
-    }
+        <| viewGame game
 
 
 viewGame : Game -> Element Msg
@@ -66,8 +81,8 @@ viewGame game =
             ]
         , spacer
         , game
-            |> Game.getCurrentRoom
-            |> Game.thingName
+            |> Game.Internal.getCurrentRoom
+            |> .name
             |> Element.text
             |> Element.el
                 [ Font.underline
@@ -80,7 +95,7 @@ viewGame game =
                     case v of
                         RoomDescription ->
                             game
-                                |> Game.getCurrentRoom
+                                |> Game.Internal.getCurrentRoom
                                 |> .description
                                 |> Element.text
                                 |> List.singleton
@@ -89,7 +104,7 @@ viewGame game =
 
                         RoomExits ->
                             game
-                                |> Game.getCurrentRoom
+                                |> Game.Internal.getCurrentRoom
                                 |> .connections
                                 |> List.map
                                     (\{ name, description, to, message } ->
@@ -107,7 +122,7 @@ viewGame game =
 
                         RoomInventory ->
                             game
-                                |> Game.getCurrentRoom
+                                |> Game.Internal.getCurrentRoom
                                 |> .contents
                                 |> (\ids -> Dict.filter (\id _ -> Set.member id ids) game.items)
                                 |> Dict.toList

@@ -1,12 +1,7 @@
 # Elm Text Adventure
 
-A simple text adventure style game in Elm.
+A module for building text adventures. Exposes functions for creating rooms, connections between rooms, and items. The rest is up to you!
 
-### WIP:
+Items are fairly open and your main way of altering the world around your player.
 
-- [ ] Actions
-- [x] Moving between rooms
-- [x] Creating items
-- [x] Assign items to a room
-- [ ] Picking up/dropping items
-- [ ] Use items
+See <TODO> for a small example game.
