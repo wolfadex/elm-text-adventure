@@ -19,6 +19,7 @@ module Game.View exposing (program)
 
 import Browser
 import Html exposing (Html)
+import Html.Attributes
 import Dict
 import Set
 import Element exposing (Element)
@@ -71,13 +72,14 @@ viewGame game =
         , Font.color <| Element.rgb 0.8 0.8 0.8
         ]
         [ Element.wrappedRow
-            [ Element.spacing <| scaled 1
-            , Element.padding <| scaled 1
+            [ Element.padding (scaled 1)
+            , Element.spaceEvenly
+            , Element.width Element.fill
             ]
             [ button "Describe Room" (SetView RoomDescription)
-            , button "List Inventory" (SetView PersonInventory)
             , button "Items in Room" (SetView RoomInventory)
             , button "Exits" (SetView RoomExits)
+            , button "Inventory" (SetView PersonInventory)
             ]
         , spacer
         , game
@@ -89,6 +91,12 @@ viewGame game =
                 , Element.padding <| scaled 1
                 ]
         , spacer
+        , Element.html <|
+            Html.node "style"
+                []
+                [ Html.text """ .wolfadex__elm-text-adventure__white-space_pre > .t {
+  white-space: pre-wrap !important;
+}""" ]
         , game
             |> .viewing
             |> (\v ->
@@ -100,7 +108,9 @@ viewGame game =
                                 |> Element.text
                                 |> List.singleton
                                 |> Element.paragraph
-                                    [ Element.padding (scaled 1) ]
+                                    [ Element.padding (scaled 1)
+                                    , whiteSpacePre
+                                    ]
 
                         RoomExits ->
                             game
@@ -184,7 +194,7 @@ viewGame game =
         , spacer
         , game
             |> .log
-            |> List.map (\log -> Element.paragraph [] [ Element.text log ])
+            |> List.map (\log -> Element.paragraph [ whiteSpacePre ] [ Element.text log ])
             |> List.intersperse
                 (Element.el
                     [ Element.width Element.fill
@@ -242,3 +252,7 @@ buttonSpacer =
 scaled : Int -> Int
 scaled i =
     Element.modular 16 1.25 i |> floor
+
+
+whiteSpacePre =
+    Html.Attributes.class "wolfadex__elm-text-adventure__white-space_pre" |> Element.htmlAttribute
