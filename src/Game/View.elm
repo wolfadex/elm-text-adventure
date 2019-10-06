@@ -59,7 +59,7 @@ viewGame game =
         [ Element.centerX
         , Element.width
             (Element.fill
-                |> Element.maximum (scaled 17)
+                |> Element.maximum (scaled 18)
             )
         , Element.height Element.fill
         , Border.shadow
@@ -70,8 +70,23 @@ viewGame game =
             }
         , Background.color <| Element.rgb 0.15 0.15 0.15
         , Font.color <| Element.rgb 0.8 0.8 0.8
+        , mobileStyling
+        , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
         ]
-        [ Element.wrappedRow
+        [ Element.html <|
+            Html.node "style"
+                []
+                [ Html.text """
+@media only screen and (max-width: 600px) {
+  .wolfadex__elm-text-adventure__mobile.wolfadex__elm-text-adventure__main-view {
+    max-width: 100%;
+  }
+
+  .wolfadex__elm-text-adventure__mobile > .t {
+    font-size: 3rem !important;
+  }
+}""" ]
+        , Element.wrappedRow
             [ Element.padding (scaled 1)
             , Element.spaceEvenly
             , Element.width Element.fill
@@ -89,12 +104,14 @@ viewGame game =
             |> Element.el
                 [ Font.underline
                 , Element.padding <| scaled 1
+                , mobileStyling
                 ]
         , spacer
         , Element.html <|
             Html.node "style"
                 []
-                [ Html.text """ .wolfadex__elm-text-adventure__white-space_pre > .t {
+                [ Html.text """
+.wolfadex__elm-text-adventure__white-space_pre > .t {
   white-space: pre-wrap !important;
 }""" ]
         , game
@@ -110,6 +127,7 @@ viewGame game =
                                 |> Element.paragraph
                                     [ Element.padding (scaled 1)
                                     , whiteSpacePre
+                                    , mobileStyling
                                     ]
 
                         RoomExits ->
@@ -119,7 +137,7 @@ viewGame game =
                                 |> List.map
                                     (\{ name, description, to, message } ->
                                         Element.wrappedRow
-                                            []
+                                            [ mobileStyling ]
                                             [ button name (MoveRoom to message)
                                             , buttonSpacer
                                             , Element.text description
@@ -148,7 +166,7 @@ viewGame game =
                                                         ( name, description )
                                         in
                                         Element.wrappedRow
-                                            []
+                                            [ mobileStyling ]
                                             [ button n (PickUpItem id)
                                             , buttonSpacer
                                             , Element.text d
@@ -176,7 +194,7 @@ viewGame game =
                                                         ( name, description )
                                         in
                                         Element.wrappedRow
-                                            []
+                                            [ mobileStyling ]
                                             [ button "Drop" (DropItem id)
                                             , buttonSpacer
                                             , button "Use" (UseItem id)
@@ -194,7 +212,7 @@ viewGame game =
         , spacer
         , game
             |> .log
-            |> List.map (\log -> Element.paragraph [ whiteSpacePre ] [ Element.text log ])
+            |> List.map (\log -> Element.paragraph [ whiteSpacePre, mobileStyling ] [ Element.text log ])
             |> List.intersperse
                 (Element.el
                     [ Element.width Element.fill
@@ -229,13 +247,11 @@ button label action =
             { offset = ( 1, 1 )
             , size = 1
             , blur = 2
-            --, color = Element.rgb 0.4 0.4 0.8
             , color = Element.rgba 1 1 1 0.5
             }
         , Element.paddingXY 3 1
-        --, Background.color (Element.rgb 1 1 1)
         , Background.color (Element.rgb 0.4 0.4 0.8)
-        --, Font.color (Element.rgb 0.2 0.2 0.2)
+        , mobileStyling
         ]
         { onPress = Just action
         , label = Element.text label
@@ -254,5 +270,11 @@ scaled i =
     Element.modular 16 1.25 i |> floor
 
 
+whiteSpacePre : Element.Attribute msg
 whiteSpacePre =
     Html.Attributes.class "wolfadex__elm-text-adventure__white-space_pre" |> Element.htmlAttribute
+
+
+mobileStyling : Element.Attribute msg
+mobileStyling =
+    Html.Attributes.class "wolfadex__elm-text-adventure__mobile" |> Element.htmlAttribute
