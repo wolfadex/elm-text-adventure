@@ -11,16 +11,19 @@ module Game.Internal exposing
     , Room
     , Name
     , Description
+    , Mode(..)
     , update
     , setRoom
     , fallbackRoom
     , getCurrentRoom
+    , addLog
     )
 
 
 ---- TYPES ----
 
 
+import Browser.Navigation
 import Dict exposing (Dict)
 import Set exposing (Set)
 
@@ -81,7 +84,14 @@ type alias Game =
     , viewing : View
     , log : List String
     , inventory : Set Id
+    , mode : Mode
     }
+
+
+type Mode
+    = Building
+    | Running
+    | Finished
 
 
 type View
@@ -111,6 +121,7 @@ type Msg
     | PickUpItem Id
     | DropItem Id
     | UseItem Id
+    | Restart
 
 
 type alias Name =
@@ -128,6 +139,9 @@ type alias Description =
 update : Msg -> Game -> ( Game, Cmd Msg )
 update msg game =
     case msg of
+        Restart ->
+            ( game, Browser.Navigation.reload )
+
         SetView v ->
             ( { game | viewing = v }, Cmd.none )
 

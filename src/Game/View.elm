@@ -1,4 +1,4 @@
-module Game.View exposing (program)
+module Game.View exposing (view)
 
 
 {-| The program for playing your game.
@@ -27,20 +27,19 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
-import Game
-import Game.Internal exposing (Game, Msg(..), View(..), Item(..))
+import Game.Internal exposing (Game, Msg(..), View(..), Item(..), Mode(..))
 
 
 {-| Starts and displays your game.
 -}
-program : Game -> Program () Game Msg
-program game =
-    Browser.element
-        { init = \_ -> ( game, Cmd.none )
-        , view = view
-        , update = Game.Internal.update
-        , subscriptions = \_ -> Sub.none    
-        }
+--program : Game -> Program () Game Msg
+--program game =
+--    Browser.element
+--        { init = \_ -> ( game, Cmd.none )
+--        , view = view
+--        , update = Game.Internal.update
+--        , subscriptions = \_ -> Sub.none    
+--        }
 
 
 view : Game -> Html Msg
@@ -55,179 +54,191 @@ view game =
 
 viewGame : Game -> Element Msg
 viewGame game =
-    Element.column
-        [ Element.centerX
-        , Element.width
-            (Element.fill
-                |> Element.maximum (scaled 18)
-            )
-        , Element.height Element.fill
-        , Border.shadow
-            { offset = ( 2, 2 )
-            , size = 1
-            , blur = 8
-            , color = Element.rgba 0 0 0 0.5
-            }
-        , Background.color <| Element.rgb 0.15 0.15 0.15
-        , Font.color <| Element.rgb 0.8 0.8 0.8
-        , mobileStyling
-        , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
-        ]
-        [ Element.html <|
-            Html.node "style"
-                []
-                [ Html.text """
-@media only screen and (max-width: 600px) {
-  .wolfadex__elm-text-adventure__mobile.wolfadex__elm-text-adventure__main-view {
-    max-width: 100%;
-  }
-
-  .wolfadex__elm-text-adventure__mobile > .t {
-    font-size: 3rem !important;
-  }
-}""" ]
-        , Element.wrappedRow
-            [ Element.padding (scaled 1)
-            , Element.spaceEvenly
-            , Element.width Element.fill
-            ]
-            [ button "Describe Room" (SetView RoomDescription)
-            , button "Items in Room" (SetView RoomInventory)
-            , button "Exits" (SetView RoomExits)
-            , button "Inventory" (SetView PersonInventory)
-            ]
-        , spacer
-        , game
-            |> Game.Internal.getCurrentRoom
-            |> .name
-            |> Element.text
-            |> Element.el
-                [ Font.underline
-                , Element.padding <| scaled 1
+    case game.mode of
+        Running ->
+            Element.column
+                [ Element.centerX
+                , Element.width
+                    (Element.fill
+                        |> Element.maximum (scaled 18)
+                    )
+                , Element.height Element.fill
+                , Border.shadow
+                    { offset = ( 2, 2 )
+                    , size = 1
+                    , blur = 8
+                    , color = Element.rgba 0 0 0 0.5
+                    }
+                , Background.color <| Element.rgb 0.15 0.15 0.15
+                , Font.color <| Element.rgb 0.8 0.8 0.8
                 , mobileStyling
+                , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
                 ]
-        , spacer
-        , Element.html <|
-            Html.node "style"
-                []
-                [ Html.text """
-.wolfadex__elm-text-adventure__white-space_pre > .t {
-  white-space: pre-wrap !important;
-}""" ]
-        , game
-            |> .viewing
-            |> (\v ->
-                    case v of
-                        RoomDescription ->
-                            game
-                                |> Game.Internal.getCurrentRoom
-                                |> .description
-                                |> Element.text
-                                |> List.singleton
-                                |> Element.paragraph
-                                    [ Element.padding (scaled 1)
-                                    , whiteSpacePre
-                                    , mobileStyling
-                                    ]
-
-                        RoomExits ->
-                            game
-                                |> Game.Internal.getCurrentRoom
-                                |> .connections
-                                |> List.map
-                                    (\{ name, description, to, message } ->
-                                        Element.wrappedRow
-                                            [ mobileStyling ]
-                                            [ button name (MoveRoom to message)
-                                            , buttonSpacer
-                                            , Element.text description
-                                            ]
-                                    )
-                                |> Element.column
-                                    [ Element.spacing (scaled 1)
-                                    , Element.padding (scaled 1)
-                                    ]
-
-                        RoomInventory ->
-                            game
-                                |> Game.Internal.getCurrentRoom
-                                |> .contents
-                                |> (\ids -> Dict.filter (\id _ -> Set.member id ids) game.items)
-                                |> Dict.toList
-                                |> List.map
-                                    (\( id, item ) ->
-                                        let
-                                            ( n, d ) =
-                                                case item of
-                                                    Tool { name, description } ->
-                                                        ( name, description )
-
-                                                    Container { name, description } ->
-                                                        ( name, description )
-                                        in
-                                        Element.wrappedRow
-                                            [ mobileStyling ]
-                                            [ button n (PickUpItem id)
-                                            , buttonSpacer
-                                            , Element.text d
-                                            ]
-                                    )
-                                |> Element.column
-                                    [ Element.spacing (scaled 1)
-                                    , Element.padding (scaled 1)
-                                    ]
-
-                        PersonInventory ->
-                            game
-                                |> .inventory
-                                |> (\ids -> Dict.filter (\id _ -> Set.member id ids) game.items)
-                                |> Dict.toList
-                                |> List.map
-                                    (\( id, item ) ->
-                                        let
-                                            ( n, d ) =
-                                                case item of
-                                                    Tool { name, description } ->
-                                                        ( name, description )
-
-                                                    Container { name, description } ->
-                                                        ( name, description )
-                                        in
-                                        Element.wrappedRow
-                                            [ mobileStyling ]
-                                            [ button "Drop" (DropItem id)
-                                            , buttonSpacer
-                                            , button "Use" (UseItem id)
-                                            , buttonSpacer
-                                            , Element.text <| n ++ ":"
-                                            , buttonSpacer
-                                            , Element.text d
-                                            ]
-                                    )
-                                |> Element.column
-                                    [ Element.spacing (scaled 1)
-                                    , Element.padding (scaled 1)
-                                    ]
-                )
-        , spacer
-        , game
-            |> .log
-            |> List.map (\log -> Element.paragraph [ whiteSpacePre, mobileStyling ] [ Element.text log ])
-            |> List.intersperse
-                (Element.el
-                    [ Element.width Element.fill
-                    , Border.width 1
-                    , Border.color (Element.rgb 0.4 0.4 0.4)
+                [ customStyles
+                , Element.wrappedRow
+                    [ Element.padding (scaled 1)
+                    , Element.spaceEvenly
+                    , Element.width Element.fill
                     ]
-                    Element.none
-                )
-            |> Element.column
-                [ Element.spacing <| scaled 1
-                , Element.padding <| scaled 1
-                , Element.scrollbarY
+                    [ button "Describe Room" (SetView RoomDescription)
+                    , button "Items in Room" (SetView RoomInventory)
+                    , button "Exits" (SetView RoomExits)
+                    , button "Inventory" (SetView PersonInventory)
+                    ]
+                , spacer
+                , game
+                    |> Game.Internal.getCurrentRoom
+                    |> .name
+                    |> Element.text
+                    |> Element.el
+                        [ Font.underline
+                        , Element.padding <| scaled 1
+                        , mobileStyling
+                        ]
+                , spacer
+                , game
+                    |> .viewing
+                    |> (\v ->
+                            case v of
+                                RoomDescription ->
+                                    game
+                                        |> Game.Internal.getCurrentRoom
+                                        |> .description
+                                        |> Element.text
+                                        |> List.singleton
+                                        |> Element.paragraph
+                                            [ Element.padding (scaled 1)
+                                            , whiteSpacePre
+                                            , mobileStyling
+                                            ]
+
+                                RoomExits ->
+                                    game
+                                        |> Game.Internal.getCurrentRoom
+                                        |> .connections
+                                        |> List.map
+                                            (\{ name, description, to, message } ->
+                                                Element.wrappedRow
+                                                    [ mobileStyling ]
+                                                    [ button name (MoveRoom to message)
+                                                    , buttonSpacer
+                                                    , Element.text description
+                                                    ]
+                                            )
+                                        |> Element.column
+                                            [ Element.spacing (scaled 1)
+                                            , Element.padding (scaled 1)
+                                            ]
+
+                                RoomInventory ->
+                                    game
+                                        |> Game.Internal.getCurrentRoom
+                                        |> .contents
+                                        |> (\ids -> Dict.filter (\id _ -> Set.member id ids) game.items)
+                                        |> Dict.toList
+                                        |> List.map
+                                            (\( id, item ) ->
+                                                let
+                                                    ( n, d ) =
+                                                        case item of
+                                                            Tool { name, description } ->
+                                                                ( name, description )
+
+                                                            Container { name, description } ->
+                                                                ( name, description )
+                                                in
+                                                Element.wrappedRow
+                                                    [ mobileStyling ]
+                                                    [ button n (PickUpItem id)
+                                                    , buttonSpacer
+                                                    , Element.text d
+                                                    ]
+                                            )
+                                        |> Element.column
+                                            [ Element.spacing (scaled 1)
+                                            , Element.padding (scaled 1)
+                                            ]
+
+                                PersonInventory ->
+                                    game
+                                        |> .inventory
+                                        |> (\ids -> Dict.filter (\id _ -> Set.member id ids) game.items)
+                                        |> Dict.toList
+                                        |> List.map
+                                            (\( id, item ) ->
+                                                let
+                                                    ( n, d ) =
+                                                        case item of
+                                                            Tool { name, description } ->
+                                                                ( name, description )
+
+                                                            Container { name, description } ->
+                                                                ( name, description )
+                                                in
+                                                Element.wrappedRow
+                                                    [ mobileStyling ]
+                                                    [ button "Drop" (DropItem id)
+                                                    , buttonSpacer
+                                                    , button "Use" (UseItem id)
+                                                    , buttonSpacer
+                                                    , Element.text <| n ++ ":"
+                                                    , buttonSpacer
+                                                    , Element.text d
+                                                    ]
+                                            )
+                                        |> Element.column
+                                            [ Element.spacing (scaled 1)
+                                            , Element.padding (scaled 1)
+                                            ]
+                        )
+                , spacer
+                , game
+                    |> .log
+                    |> List.map (\log -> Element.paragraph [ whiteSpacePre, mobileStyling ] [ Element.text log ])
+                    |> List.intersperse logSeparator
+                    |> Element.column
+                        [ Element.spacing <| scaled 1
+                        , Element.padding <| scaled 1
+                        , Element.scrollbarY
+                        ]
+
                 ]
 
-        ]
+        Finished ->
+            Element.column
+                [ Element.centerX
+                , Element.width
+                    (Element.fill
+                        |> Element.maximum (scaled 18)
+                    )
+                , Element.height Element.fill
+                , Border.shadow
+                    { offset = ( 2, 2 )
+                    , size = 1
+                    , blur = 8
+                    , color = Element.rgba 0 0 0 0.5
+                    }
+                , Background.color <| Element.rgb 0.15 0.15 0.15
+                , Font.color <| Element.rgb 0.8 0.8 0.8
+                , mobileStyling
+                , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
+                ]
+                [ customStyles
+                , game.log
+                    |> List.take 2
+                    |> List.map (\log -> Element.paragraph [ whiteSpacePre, mobileStyling ] [ Element.text log ])
+                    |> List.intersperse logSeparator
+                    |> Element.column
+                        [ Element.padding (scaled 1)
+                        , Element.spacing (scaled 1)
+                        ]
+                , Element.el
+                    [ Element.padding (scaled 2) ]
+                    (button "Restart" Restart)
+                ]
+
+        Building ->
+            Element.none
 
 
 spacer : Element msg
@@ -265,6 +276,16 @@ buttonSpacer =
         Element.none
 
 
+logSeparator : Element msg
+logSeparator =
+    Element.el
+        [ Element.width Element.fill
+        , Border.width 1
+        , Border.color (Element.rgb 0.4 0.4 0.4)
+        ]
+        Element.none
+
+
 scaled : Int -> Int
 scaled i =
     Element.modular 16 1.25 i |> floor
@@ -278,3 +299,23 @@ whiteSpacePre =
 mobileStyling : Element.Attribute msg
 mobileStyling =
     Html.Attributes.class "wolfadex__elm-text-adventure__mobile" |> Element.htmlAttribute
+
+
+customStyles =
+    Element.html <|
+                Html.node "style"
+                    []
+                    [ Html.text """
+@media only screen and (max-width: 600px) {
+  .wolfadex__elm-text-adventure__mobile.wolfadex__elm-text-adventure__main-view {
+    max-width: 100%;
+  }
+
+  .wolfadex__elm-text-adventure__mobile > .t {
+    font-size: 3rem !important;
+  }
+}
+
+.wolfadex__elm-text-adventure__white-space_pre > .t {
+  white-space: pre-wrap !important;
+}""" ]

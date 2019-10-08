@@ -1,6 +1,6 @@
 module Main exposing (main)
 
-import Game exposing (Game, addRoom, makeGame)
+import Game exposing (Game)
 import Game.View
 
 
@@ -8,28 +8,28 @@ main : Program () Game Game.Msg
 main =
     let
         game1 =
-            makeGame "Spaceship"
+            Game.makeGame "Spaceship"
 
         ( cockpit, game2 ) =
-            addRoom
+            Game.addRoom
                 "Cockpit"
                 "The cockpit of the ship. It has 3 seats and lots of complicated flight controls."
                 game1
 
         ( commonRoom, game3 ) =
-            addRoom
+            Game.addRoom
                 "Common Room"
                 "A shared space for the crew. There's some cabinets, a 3D printer, and places to make food."
                 game2
 
         ( sleepingQuarters, game4 ) =
-            addRoom
+            Game.addRoom
                 "Sleeping Quarters"
                 "A few beds and a toilet."
                 game3
 
         ( engineRoom, game5 ) =
-            addRoom
+            Game.addRoom
                 "Engine Room"
                 "The room is humming with the sounds of the engine. There are storage tanks for fuel and oxygen."
                 game4
@@ -81,16 +81,10 @@ main =
             "Bloody Knife"
             "An acient blade covered in blood. The blood is still warm."
             (\item g ->
-                let
-                    ( endRoom, finalG ) =
-                        Game.addRoom
-                            "The Void"
-                            "You see nothing. You feel nothing. You smell nothing. Your mind starts to crumble under the nothingness."
-                            g
-                in
-                ( finalG
+                ( g
                     |> Game.deleteItem item
-                    |> Game.setRoom endRoom
+                    |> Game.endGame
+                        "You see nothing. You feel nothing. You smell nothing. Your mind starts to crumble under the nothingness."
                 , """You wave the knife through the air. It seems to cut through space, opening a passage to another plane.
 
 A long, spindly pale arm reaches through and grabs you, pulling you into the nothingness . . ."""
@@ -109,4 +103,4 @@ A long, spindly pale arm reaches through and grabs you, pulling you into the not
             """You wake up in a blurry haze. You seem to be on a spaceship but you have no idea how you got there.
 
 Last thing you remember, you were drinking with your friends in a British pub."""
-        |> Game.View.program
+        |> Game.program
