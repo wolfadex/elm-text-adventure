@@ -4,6 +4,8 @@ module Game exposing
     , addConnection
     , addItemToRoom
     , addRoom
+    , changeRoomName
+    , changeRoomDescription
     --, createContainer
     , createTool
     , finalize
@@ -74,6 +76,8 @@ module Game exposing
 ## Rooms
 
 @docs addRoom
+@docs changeRoomName
+@docs changeRoomDescription
 @docs getCurrentRoom
 @docs setRoom
 @docs addConnection
@@ -87,8 +91,8 @@ module Game exposing
 -}
 
 import Browser
-import Dict exposing (Dict)
-import Set exposing (Set)
+import Dict
+import Set
 import Game.View
 import Game.Internal exposing
     ( Msg(..)
@@ -176,6 +180,33 @@ addRoom name description (Game ({ buildId, rooms } as game)) =
             , buildId = buildId + 1
         }
     )
+
+
+{-| Change the name of a room.
+-}
+changeRoomName : Name -> RoomId -> Game -> Game
+changeRoomName newName =
+    updateRoom (\room -> { room | name = newName })
+
+
+{-| Change the namedescription of a room.
+-}
+changeRoomDescription : Description -> RoomId -> Game -> Game
+changeRoomDescription newDescription =
+    updateRoom (\room -> { room | description = newDescription })
+
+
+updateRoom : (Room -> Room) -> RoomId -> Game -> Game
+updateRoom changeToMake (RoomId roomId) (Game game) =
+    Game
+        { game
+            | rooms =
+                Dict.update
+                    roomId
+                    (Maybe.map changeToMake)
+                    game.rooms
+        }
+
 
 
 {-| Gets the current room the player is in. Useful for knowing where the player is when they use an item.
