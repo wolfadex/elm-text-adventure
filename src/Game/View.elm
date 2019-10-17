@@ -30,18 +30,6 @@ import Element.Input as Input
 import Game.Internal exposing (Game, Msg(..), View(..), Item(..), Mode(..))
 
 
-{-| Starts and displays your game.
--}
---program : Game -> Program () Game Msg
---program game =
---    Browser.element
---        { init = \_ -> ( game, Cmd.none )
---        , view = view
---        , update = Game.Internal.update
---        , subscriptions = \_ -> Sub.none    
---        }
-
-
 view : Game -> Html Msg
 view game =
     Element.layout
@@ -119,10 +107,15 @@ viewGame game =
                                         |> List.map
                                             (\{ name, description, to, message } ->
                                                 Element.wrappedRow
-                                                    [ mobileStyling ]
+                                                    [ mobileStyling
+                                                    ]
                                                     [ button name (MoveRoom to message)
                                                     , buttonSpacer
-                                                    , Element.text description
+                                                    , Element.el
+                                                        [ whiteSpacePre
+                                                        , Element.width Element.fill
+                                                        ]
+                                                        (Element.text description)
                                                     ]
                                             )
                                         |> Element.column
