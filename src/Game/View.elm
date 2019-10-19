@@ -83,7 +83,7 @@ viewGame game =
                     , Element.width Element.fill
                     ]
                     [ button "Describe Room" (SetView RoomDescription)
-                    , button "Items in Room" (SetView RoomInventory)
+                    , button "Search Room" (SetView RoomInventory)
                     , button "Exits" (SetView RoomExits)
                     , button "Inventory" (SetView PersonInventory)
                     ]
