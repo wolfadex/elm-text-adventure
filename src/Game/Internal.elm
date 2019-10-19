@@ -1,27 +1,26 @@
 module Game.Internal exposing
-    ( Item(..)
-    , Msg(..)
-    , View(..)
-    , ItemUse
+    ( Description
     , Game
+    , Id
+    , Item(..)
     , ItemId(..)
-    , RoomId(..)
-    , Message
+    , ItemUse
     , Locked(..)
-    , Room
-    , Name
-    , Description
+    , Message
     , Mode(..)
-    , update
-    , setRoom
+    , Msg(..)
+    , Name
+    , Room
+    , RoomId(..)
+    , View(..)
+    , addLog
     , fallbackRoom
     , getCurrentRoom
-    , addLog
+    , setRoom
+    , update
     )
 
-
 ---- TYPES ----
-
 
 import Browser.Navigation
 import Dict exposing (Dict)
@@ -161,7 +160,7 @@ update msg game =
                     Dict.get item game.items
                         |> getItemName
             in
-            ( { game 
+            ( { game
                 | rooms =
                     Dict.update
                         roomId
@@ -186,13 +185,12 @@ update msg game =
                     Dict.get item game.items
                         |> getItemName
 
-
                 roomName =
                     Dict.get roomId game.rooms
                         |> Maybe.withDefault fallbackRoom
                         |> .name
             in
-            ( { game 
+            ( { game
                 | rooms =
                     Dict.update
                         roomId
@@ -219,8 +217,8 @@ update msg game =
                                         use
 
                                     _ ->
-                                        (\_ g -> ( g, "Nothing happens." ))
-                            )
+                                        \_ g -> ( g, "Nothing happens." )
+                           )
 
                 ( nextGame, message ) =
                     toolUse (ItemId item) game
@@ -255,12 +253,12 @@ fallbackRoom =
     }
 
 
-
 getCurrentRoom : Game -> Room
 getCurrentRoom { rooms, currentRoom } =
     case currentRoom of
         RoomId id ->
             Dict.get id rooms |> Maybe.withDefault fallbackRoom
+
 
 
 ---- FUNCTIONS EXPORTED ALL THE WAY ----
