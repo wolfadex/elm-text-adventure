@@ -1,20 +1,19 @@
 module Game exposing
     ( Game
     , Msg
-    , addConnection
-    , addItemToRoom
-    , addRoom
-    --, createContainer
-    , createTool
-    , finalize
-    , getCurrentRoom
-    , makeGame
-    , setRoom
-    , deleteItem
-    , endGame
     , program
+    , makeGame
+    , finalize
+    , endGame
+    , addRoom
+    , getCurrentRoom
+    , setRoom
+    , addConnection
+    , createTool
+    , addItemToRoom
+    , deleteItem
+    --, createContainer
     )
-
 
 {-| The following is a basic game with 2 rooms and connections to move between them.
 
@@ -37,7 +36,7 @@ module Game exposing
                     "Bathroom"
                     "A simple bathroom. Just a toilet and sink."
         in
-        Gma.makeGame "Sample Game"
+        Game.makeGame "Sample Game"
             |> Game.addConnection
                 { from = bedroom
                 , to = bathroom
@@ -57,12 +56,15 @@ module Game exposing
                 "You wake up in your bedroom."
             |> Game.program
 
+
 # Types for makeing your `main` function typed
 
 @docs Game
 @docs Msg
 
+
 # Game building functions
+
 
 ## General
 
@@ -71,12 +73,14 @@ module Game exposing
 @docs finalize
 @docs endGame
 
+
 ## Rooms
 
 @docs addRoom
 @docs getCurrentRoom
 @docs setRoom
 @docs addConnection
+
 
 ## Items
 
@@ -88,28 +92,29 @@ module Game exposing
 
 import Browser
 import Dict exposing (Dict)
-import Set exposing (Set)
+import Game.Internal
+    exposing
+        ( Description
+        , Game
+        , Item(..)
+        , ItemId(..)
+        , Locked(..)
+        , Message
+        , Mode(..)
+        , Msg(..)
+        , Name
+        , Room
+        , RoomId(..)
+        , View(..)
+        , addLog
+        )
 import Game.View
-import Game.Internal exposing
-    ( Msg(..)
-    , Item(..)
-    , View(..)
-    , ItemId(..)
-    , RoomId(..)
-    , Game
-    , Message
-    , Locked(..)
-    , Room
-    , Name
-    , Description
-    , Mode(..)
-    , addLog
-    )
+import Set exposing (Set)
 
 
 {-| -}
-type Game =
-    Game Game.Internal.Game
+type Game
+    = Game Game.Internal.Game
 
 
 {-| -}
@@ -125,6 +130,7 @@ type alias Msg =
             ...
         in
             Game.program yourGame
+
 -}
 program : Game -> Program () Game Msg
 program game =
@@ -132,13 +138,14 @@ program game =
         { init = \_ -> ( game, Cmd.none )
         , view = \(Game g) -> Game.View.view g
         , update = \msg (Game g) -> Game.Internal.update msg g |> Tuple.mapFirst Game
-        , subscriptions = \_ -> Sub.none    
+        , subscriptions = \_ -> Sub.none
         }
 
 
 {-| Takes a name and creates your new game.
 
     makeGame "Your Cool Adventure"
+
 -}
 makeGame : Name -> Game
 makeGame name =
@@ -158,6 +165,7 @@ makeGame name =
 {-| Adds a new room to your game. This only creates the room and not any connections between rooms.
 
     addRoom "Name" "Description" yourGame
+
 -}
 addRoom : Name -> Description -> Game -> ( RoomId, Game )
 addRoom name description (Game ({ buildId, rooms } as game)) =
@@ -181,6 +189,7 @@ addRoom name description (Game ({ buildId, rooms } as game)) =
 {-| Gets the current room the player is in. Useful for knowing where the player is when they use an item.
 
     getCurrentRoom yourGame == someRoom
+
 -}
 getCurrentRoom : Game -> RoomId
 getCurrentRoom (Game { currentRoom }) =
@@ -206,6 +215,7 @@ In order for to get from room A to room B and back, you need to create 2 connect
             , description = "Door to Room A."
             , message = "You walk to Room A."
             }
+
 -}
 addConnection : { from : RoomId, to : RoomId, name : String, description : String, message : String } -> Game -> Game
 addConnection { from, to, name, description, message } (Game ({ rooms } as game)) =
@@ -238,6 +248,7 @@ addConnection { from, to, name, description, message } (Game ({ rooms } as game)
 {-| Finalizes your game by setting the initial room and the first message the player sees.
 
     finalize startingRoom "Welcome message to set the scene" yourGame
+
 -}
 finalize : RoomId -> Message -> Game -> Game
 finalize initialRoom initialMessage (Game game) =
@@ -260,6 +271,7 @@ finalize initialRoom initialMessage (Game game) =
         yourGame
 
 ItemUse is how your item affects the game world, anything from opening a door to teleporting the player.
+
 -}
 createTool : Name -> Description -> (ItemId -> Game -> ( Game, Message )) -> Game -> ( ItemId, Game )
 createTool name description use (Game ({ buildId, items } as game)) =
@@ -289,6 +301,7 @@ extractGame (Game g) =
 {-| Creates a container that can be placed in a room or on your player.
 
     createContainer "Name" "Description" yourGame
+
 -}
 createContainer : Name -> Description -> Game -> ( ItemId, Game )
 createContainer name description (Game ({ buildId, items } as game)) =
@@ -309,9 +322,10 @@ createContainer name description (Game ({ buildId, items } as game)) =
 {-| Adds the specified item to the game.
 
     addItemToRoom room ( item, game )
+
 -}
 addItemToRoom : RoomId -> ( ItemId, Game ) -> Game
-addItemToRoom (RoomId roomId) ( (ItemId itemId), (Game ({ rooms } as game)) ) =
+addItemToRoom (RoomId roomId) ( ItemId itemId, Game ({ rooms } as game) ) =
     Game
         { game
             | rooms =
@@ -329,6 +343,7 @@ addItemToRoom (RoomId roomId) ( (ItemId itemId), (Game ({ rooms } as game)) ) =
 {-| "Teleports" the player to the specified room.
 
     setRoom someRoom yourGame
+
 -}
 setRoom : RoomId -> Game -> Game
 setRoom room (Game game) =
@@ -340,6 +355,7 @@ setRoom room (Game game) =
 {-| Removes the specified item from the game.
 
     deleteItem itemToDelete yourGame
+
 -}
 deleteItem : ItemId -> Game -> Game
 deleteItem (ItemId id) (Game game) =
@@ -357,10 +373,10 @@ deleteItem (ItemId id) (Game game) =
 {-| Use this to end the game. Pass it your final message.
 
     endGame "Final message" yourGame
+
 -}
 endGame : String -> Game -> Game
 endGame endMessage (Game game) =
     { game | mode = Finished }
         |> addLog endMessage
         |> Game
-

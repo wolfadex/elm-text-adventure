@@ -8,7 +8,7 @@ module Game.View exposing (view)
     {-| The most basic game possible
     -}
     main =
-        Gma.makeGame "Sample Game"
+        Game.makeGame "Sample Game"
             |> Game.view.program
 
 @docs program
