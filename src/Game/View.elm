@@ -28,21 +28,6 @@ import Html.Attributes
 import Set exposing (Set)
 
 
-{-| Starts and displays your game.
--}
-
-
-
---program : Game -> Program () Game Msg
---program game =
---    Browser.element
---        { init = \_ -> ( game, Cmd.none )
---        , view = view
---        , update = Game.Internal.update
---        , subscriptions = \_ -> Sub.none
---        }
-
-
 view : Game -> Html Msg
 view game =
     Element.layout
@@ -188,7 +173,11 @@ renderExit name desc to msg =
         [ mobileStyling ]
         [ button name (MoveRoom to msg)
         , buttonSpacer
-        , Element.text desc
+        , Element.el
+            [ whiteSpacePre
+            , Element.width Element.fill
+            ]
+            (Element.text desc)
         ]
 
 
