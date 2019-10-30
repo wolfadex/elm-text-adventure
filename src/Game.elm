@@ -8,12 +8,14 @@ module Game exposing
     , finalize
     , endGame
     , addRoom
+    , deleteRoom
     , getCurrentRoom
     , setRoom
     , addConnection
     , createTool
     , addItemToRoom
     , deleteItem
+    , deleteConnection
     --, createContainer
     )
 
@@ -83,7 +85,9 @@ module Game exposing
 @docs changeRoomDescription
 @docs getCurrentRoom
 @docs setRoom
+@docs deleteRoom
 @docs addConnection
+@docs deleteConnection
 
 
 ## Items
@@ -222,6 +226,33 @@ updateRoom changeToMake (RoomId roomId) (Game game) =
         }
 
 
+{-| Removes a room from the game, as well as all of its contents and any connections going to the room.
+
+    deleteRoom someRoom yourGame
+
+**NOTE:** If you delete the room your character is currently in, don't forget to send them to a new room with `setRoom`!
+-}
+deleteRoom : RoomId -> Game -> Game
+deleteRoom (RoomId roomId) (Game game) =
+    case Dict.get roomId game.rooms of
+        Nothing ->
+            Game game
+
+        Just { contents } ->
+            Game
+                { game
+                    | rooms =
+                        game.rooms
+                            |> Dict.remove roomId
+                            |> Dict.map (\_ r -> { r | connections = List.filter (\{ to } -> to == RoomId roomId) r.connections })
+                    , items =
+                        Dict.filter
+                            (\id _ -> not (Set.member id contents))
+                            game.items
+                }
+
+
+
 
 {-| Gets the current room the player is in. Useful for knowing where the player is when they use an item.
 
@@ -254,8 +285,8 @@ In order for to get from room A to room B and back, you need to create 2 connect
             }
 
 -}
-addConnection : { from : RoomId, to : RoomId, name : String, description : String, message : String } -> Game -> Game
-addConnection { from, to, name, description, message } (Game ({ rooms } as game)) =
+addConnection : { from : RoomId, to : RoomId, name : String, description : String, locked : Bool, message : String } -> Game -> Game
+addConnection { from, to, name, description, locked, message } (Game ({ rooms } as game)) =
     Game
         { game
             | rooms =
@@ -271,7 +302,7 @@ addConnection { from, to, name, description, message } (Game ({ rooms } as game)
                                     { name = name
                                     , description = description
                                     , to = to
-                                    , locked = Unlocked
+                                    , locked = if locked then Locked else Unlocked
                                     , message = message
                                     }
                                         :: connections
@@ -280,6 +311,24 @@ addConnection { from, to, name, description, message } (Game ({ rooms } as game)
                     )
                     rooms
         }
+
+
+{-| Remove the specified connection from the game. A connection is identified by the room it's coming from, going to, and its name.
+
+    deleteConnection { from = roomId1, to = roomId2, name = "Name" } yourGame
+-}
+deleteConnection : { from : RoomId, to : RoomId, name : Name } -> Game -> Game
+deleteConnection { from, to, name } =
+    updateRoom
+        (\room ->
+            { room
+                | connections =
+                    List.filter
+                        (\connection -> connection.to /= to || connection.name /= name)
+                        room.connections
+            }
+        )
+        from
 
 
 {-| Finalizes your game by setting the initial room and the first message the player sees.
