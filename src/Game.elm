@@ -14,6 +14,7 @@ module Game exposing
     , createTool
     , addItemToRoom
     , deleteItem
+    , deleteConnection
     --, createContainer
     )
 
@@ -84,6 +85,7 @@ module Game exposing
 @docs getCurrentRoom
 @docs setRoom
 @docs addConnection
+@docs deleteConnection
 
 
 ## Items
@@ -254,7 +256,7 @@ In order for to get from room A to room B and back, you need to create 2 connect
             }
 
 -}
-addConnection : { from : RoomId, to : RoomId, name : String, description : String, message : String } -> Game -> Game
+addConnection : { from : RoomId, to : RoomId, name : Name, description : Description, message : Message } -> Game -> Game
 addConnection { from, to, name, description, message } (Game ({ rooms } as game)) =
     Game
         { game
@@ -280,6 +282,24 @@ addConnection { from, to, name, description, message } (Game ({ rooms } as game)
                     )
                     rooms
         }
+
+
+{-| Remove the specified connection from the game. A connection is identified by the room it's coming from, going to, and its name.
+
+    deleteConnection { from = roomId1, to = roomId2, name = "Name" } yourGame
+-}
+deleteConnection : { from : RoomId, to : RoomId, name : Name } -> Game -> Game
+deleteConnection { from, to, name } =
+    updateRoom
+        (\room ->
+            { room
+                | connections =
+                    List.filter
+                        (\connection -> connection.to /= to || connection.name /= name)
+                        room.connections
+            }
+        )
+        from
 
 
 {-| Finalizes your game by setting the initial room and the first message the player sees.
