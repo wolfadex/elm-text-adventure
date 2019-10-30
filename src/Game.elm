@@ -8,6 +8,7 @@ module Game exposing
     , finalize
     , endGame
     , addRoom
+    , deleteRoom
     , getCurrentRoom
     , setRoom
     , addConnection
@@ -84,6 +85,7 @@ module Game exposing
 @docs changeRoomDescription
 @docs getCurrentRoom
 @docs setRoom
+@docs deleteRoom
 @docs addConnection
 @docs deleteConnection
 
@@ -222,6 +224,33 @@ updateRoom changeToMake (RoomId roomId) (Game game) =
                     (Maybe.map changeToMake)
                     game.rooms
         }
+
+
+{-| Removes a room from the game, as well as all of its contents and any connections going to the room.
+
+    deleteRoom someRoom yourGame
+
+**NOTE:** If you delete the room your character is currently in, don't forget to send them to a new room with `setRoom`!
+-}
+deleteRoom : RoomId -> Game -> Game
+deleteRoom (RoomId roomId) (Game game) =
+    case Dict.get roomId game.rooms of
+        Nothing ->
+            Game game
+
+        Just { contents } ->
+            Game
+                { game
+                    | rooms =
+                        game.rooms
+                            |> Dict.remove roomId
+                            |> Dict.map (\_ r -> { r | connections = List.filter (\{ to } -> to == RoomId roomId) r.connections })
+                    , items =
+                        Dict.filter
+                            (\id _ -> not (Set.member id contents))
+                            game.items
+                }
+
 
 
 
