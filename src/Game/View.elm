@@ -15,7 +15,6 @@ module Game.View exposing (view)
 
 -}
 
-import Browser
 import Dict
 import Element exposing (Element)
 import Element.Background as Background
@@ -319,6 +318,7 @@ mobileStyling =
     Html.Attributes.class "wolfadex__elm-text-adventure__mobile" |> Element.htmlAttribute
 
 
+customStyles : Element msg
 customStyles =
     Element.html <|
         Html.node "style"

@@ -3,6 +3,8 @@ module Game exposing
     , Msg
     , program
     , makeGame
+    , changeRoomName
+    , changeRoomDescription
     , finalize
     , endGame
     , addRoom
@@ -77,6 +79,8 @@ module Game exposing
 ## Rooms
 
 @docs addRoom
+@docs changeRoomName
+@docs changeRoomDescription
 @docs getCurrentRoom
 @docs setRoom
 @docs addConnection
@@ -91,7 +95,7 @@ module Game exposing
 -}
 
 import Browser
-import Dict exposing (Dict)
+import Dict
 import Game.Internal
     exposing
         ( Description
@@ -109,7 +113,7 @@ import Game.Internal
         , addLog
         )
 import Game.View
-import Set exposing (Set)
+import Set
 
 
 {-| -}
@@ -184,6 +188,39 @@ addRoom name description (Game ({ buildId, rooms } as game)) =
             , buildId = buildId + 1
         }
     )
+
+
+{-| Change the name of a room.
+
+    changeRoomName "New Name" someRoom yourGame
+-}
+changeRoomName : Name -> RoomId -> Game -> Game
+changeRoomName newName =
+    updateRoom (\room -> { room | name = newName })
+
+
+{-| Change the namedescription of a room.
+
+    changeRoomDescription "New Description" someRoom yourGame
+-}
+changeRoomDescription : Description -> RoomId -> Game -> Game
+changeRoomDescription newDescription =
+    updateRoom (\room -> { room | description = newDescription })
+
+
+{-| Helper for updating rooms.
+-}
+updateRoom : (Room -> Room) -> RoomId -> Game -> Game
+updateRoom changeToMake (RoomId roomId) (Game game) =
+    Game
+        { game
+            | rooms =
+                Dict.update
+                    roomId
+                    (Maybe.map changeToMake)
+                    game.rooms
+        }
+
 
 
 {-| Gets the current room the player is in. Useful for knowing where the player is when they use an item.
@@ -321,23 +358,11 @@ createContainer name description (Game ({ buildId, items } as game)) =
 
 {-| Adds the specified item to the game.
 
-    addItemToRoom room ( item, game )
-
+    addItemToRoom item room game
 -}
-addItemToRoom : RoomId -> ( ItemId, Game ) -> Game
-addItemToRoom (RoomId roomId) ( ItemId itemId, Game ({ rooms } as game) ) =
-    Game
-        { game
-            | rooms =
-                Dict.update
-                    roomId
-                    (Maybe.map
-                        (\({ contents } as room) ->
-                            { room | contents = Set.insert itemId contents }
-                        )
-                    )
-                    rooms
-        }
+addItemToRoom : ItemId -> RoomId -> Game -> Game
+addItemToRoom (ItemId itemId) =
+    updateRoom (\room -> { room | contents = Set.insert itemId room.contents })
 
 
 {-| "Teleports" the player to the specified room.
