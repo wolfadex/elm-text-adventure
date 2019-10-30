@@ -13,6 +13,8 @@ module Game exposing
     , setRoom
     , addConnection
     , createTool
+    , changeItemName
+    , changeItemDescription
     , addItemToRoom
     , deleteItem
     , deleteConnection
@@ -93,6 +95,8 @@ module Game exposing
 ## Items
 
 @docs createTool
+@docs changeItemName
+@docs changeItemDescription
 @docs addItemToRoom
 @docs deleteItem
 
@@ -382,6 +386,54 @@ createTool name description use (Game ({ buildId, items } as game)) =
 extractGame : Game -> Game.Internal.Game
 extractGame (Game g) =
     g
+
+
+{-| Change the name of an item.
+
+    changeItemName "New Name" item game
+-}
+changeItemName : Name -> ItemId -> Game -> Game
+changeItemName newName =
+    updateItem
+        (\item ->
+            case item of
+                Tool t ->
+                    Tool { t | name = newName }
+
+                Container c ->
+                    Container { c | name = newName }
+        )
+
+
+{-| Change the description of an item.
+
+    changeItemDescription "New description." item game
+-}
+changeItemDescription : Description -> ItemId -> Game -> Game
+changeItemDescription newDescription =
+    updateItem
+        (\item ->
+            case item of
+                Tool t ->
+                    Tool { t | description = newDescription }
+
+                Container c ->
+                    Container { c | description = newDescription }
+        )
+
+
+{-| Helper for updating items.
+-}
+updateItem : (Item -> Item) -> ItemId -> Game -> Game
+updateItem changeToMake (ItemId itemId) (Game game) =
+    Game
+        { game
+            | items =
+                Dict.update
+                    itemId
+                    (Maybe.map changeToMake)
+                    game.items
+        }
 
 
 {-| Creates a container that can be placed in a room or on your player.
