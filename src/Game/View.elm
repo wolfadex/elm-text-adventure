@@ -21,7 +21,7 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
-import Game.Internal exposing (Game, Id, Item(..), Mode(..), Msg(..), RoomId(..), View(..))
+import Game.Internal exposing (Game, Id, Item(..), Mode(..), Msg(..), RoomId(..), View(..), Locked(..), Connection)
 import Html exposing (Html)
 import Html.Attributes
 import Set exposing (Set)
@@ -66,10 +66,10 @@ viewGame game =
                     , Element.spaceEvenly
                     , Element.width Element.fill
                     ]
-                    [ button "Describe Room" (SetView RoomDescription)
-                    , button "Search Room" (SetView RoomInventory)
-                    , button "Exits" (SetView RoomExits)
-                    , button "Inventory" (SetView PersonInventory)
+                    [ button { label = "Describe Room", action = Just (SetView RoomDescription) }
+                    , button { label = "Search Room", action = Just (SetView RoomInventory) }
+                    , button { label = "Exits", action = Just (SetView RoomExits) }
+                    , button { label = "Inventory", action = Just (SetView PersonInventory) }
                     ]
                 , spacer
                 , game
@@ -130,7 +130,7 @@ viewGame game =
                 , renderGameLog game
                 , Element.el
                     [ Element.padding (scaled 2) ]
-                    (button "Restart" Restart)
+                    (button { label = "Restart", action = Just Restart })
                 ]
 
         Building ->
@@ -156,27 +156,33 @@ renderExits game =
     game
         |> Game.Internal.getCurrentRoom
         |> .connections
-        |> List.map
-            (\{ name, description, to, message } ->
-                renderExit name description to message
-            )
+        |> List.map renderExit
         |> Element.column
             [ Element.spacing (scaled 1)
             , Element.padding (scaled 1)
             ]
 
 
-renderExit : String -> String -> RoomId -> String -> Element Msg
-renderExit name desc to msg =
+renderExit : Connection -> Element Msg
+renderExit { name, description, to, locked, message } =
     Element.wrappedRow
         [ mobileStyling ]
-        [ button name (MoveRoom to msg)
+        [ button
+            { label = name
+            , action =
+                case locked of
+                    Locked ->
+                        Nothing
+
+                    Unlocked ->
+                        Just (MoveRoom to message)
+            }
         , buttonSpacer
         , Element.el
             [ whiteSpacePre
             , Element.width Element.fill
             ]
-            (Element.text desc)
+            (Element.text description)
         ]
 
 
@@ -213,7 +219,7 @@ renderItemContainer id item renderFn =
 
 renderRoomItem : Id -> ( String, String ) -> List (Element Msg)
 renderRoomItem id ( n, d ) =
-    [ button n (PickUpItem id)
+    [ button { label = n, action = Just (PickUpItem id) }
     , buttonSpacer
     , Element.text d
     ]
@@ -221,9 +227,9 @@ renderRoomItem id ( n, d ) =
 
 renderPlayerItem : Id -> ( String, String ) -> List (Element Msg)
 renderPlayerItem id ( n, d ) =
-    [ button "Drop" (DropItem id)
+    [ button { label = "Drop", action = Just (DropItem id) }
     , buttonSpacer
-    , button "Use" (UseItem id)
+    , button { label = "Use", action = Just (UseItem id) }
     , buttonSpacer
     , Element.text <| n ++ ":"
     , buttonSpacer
@@ -268,8 +274,8 @@ spacer =
         Element.none
 
 
-button : String -> Msg -> Element Msg
-button label action =
+button : { label : String, action : Maybe Msg } -> Element Msg
+button { label, action } =
     Input.button
         [ Border.shadow
             { offset = ( 1, 1 )
@@ -278,10 +284,16 @@ button label action =
             , color = Element.rgba 1 1 1 0.5
             }
         , Element.paddingXY 3 1
-        , Background.color (Element.rgb 0.4 0.4 0.8)
+        , Background.color <|
+            case action of
+                Nothing ->
+                    Element.rgb 0.4 0.4 0.2
+
+                Just _ ->
+                    Element.rgb 0.4 0.4 0.8
         , mobileStyling
         ]
-        { onPress = Just action
+        { onPress = action
         , label = Element.text label
         }
 

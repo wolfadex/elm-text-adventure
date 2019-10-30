@@ -1,6 +1,7 @@
 module Game.Internal exposing
     ( Description
     , Game
+    , Connection
     , Id
     , Item(..)
     , ItemId(..)

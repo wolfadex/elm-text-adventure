@@ -62,6 +62,7 @@ main =
             , to = commonRoom
             , name = "Ladder Down"
             , description = "Ladder to Common Room"
+            , locked = False
             , message = "You climb down the ladder to the common room."
             }
         |> Game.addConnection
@@ -69,6 +70,7 @@ main =
             , to = sleepingQuarters
             , name = "Ladder Down"
             , description = "Ladder to Sleeping Quarters"
+            , locked = True
             , message = "You climb down the ladder to the sleeping quarters." 
             }
         |> Game.addConnection
@@ -76,6 +78,7 @@ main =
             , to = cockpit
             , name = "Ladder Up"
             , description = "Ladder to Cockpit"
+            , locked = False
             , message = "You climb up the ladder to the cockpit."
             }
         |> Game.addConnection
@@ -83,6 +86,7 @@ main =
             , to = engineRoom
             , name = "Ladder Down"
             , description = "Ladder to Engine Room"
+            , locked = False
             , message = "You climb down the ladder to the engine room."
             }
         |> Game.addConnection
@@ -90,6 +94,7 @@ main =
             , to = commonRoom
             , name = "Ladder Up"
             , description = "Ladder to Common Room"
+            , locked = False
             , message = "You climb up the ladder to the common room."
             }
         |> Game.addConnection
@@ -97,6 +102,7 @@ main =
             , to = sleepingQuarters
             , name = "Ladder Up"
             , description = "Ladder to Sleeping Quarters"
+            , locked = False
             , message = "You climb up the ladder to the sleeping quarters."
             }
         |> Game.addItemToRoom bloodyKnife cockpit

@@ -285,8 +285,8 @@ In order for to get from room A to room B and back, you need to create 2 connect
             }
 
 -}
-addConnection : { from : RoomId, to : RoomId, name : Name, description : Description, message : Message } -> Game -> Game
-addConnection { from, to, name, description, message } (Game ({ rooms } as game)) =
+addConnection : { from : RoomId, to : RoomId, name : String, description : String, locked : Bool, message : String } -> Game -> Game
+addConnection { from, to, name, description, locked, message } (Game ({ rooms } as game)) =
     Game
         { game
             | rooms =
@@ -302,7 +302,7 @@ addConnection { from, to, name, description, message } (Game ({ rooms } as game)
                                     { name = name
                                     , description = description
                                     , to = to
-                                    , locked = Unlocked
+                                    , locked = if locked then Locked else Unlocked
                                     , message = message
                                     }
                                         :: connections
