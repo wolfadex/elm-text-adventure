@@ -15,6 +15,7 @@ module Game exposing
     , createTool
     , changeItemName
     , changeItemDescription
+    , changeItemUse
     , addItemToRoom
     , deleteItem
     , deleteConnection
@@ -97,6 +98,7 @@ module Game exposing
 @docs createTool
 @docs changeItemName
 @docs changeItemDescription
+@docs changeItemUse
 @docs addItemToRoom
 @docs deleteItem
 
@@ -110,6 +112,7 @@ import Game.Internal
         , Game
         , Item(..)
         , ItemId(..)
+        , ItemUse
         , Locked(..)
         , Message
         , Mode(..)
@@ -419,6 +422,23 @@ changeItemDescription newDescription =
 
                 Container c ->
                     Container { c | description = newDescription }
+        )
+
+
+{-| Change what happens when you use an item.
+
+    changeItemUse (\itemId game -> ...) item game
+-}
+changeItemUse : ItemUse -> ItemId -> Game -> Game
+changeItemUse newUse =
+    updatItem
+        (\item ->
+            case item of
+                Container _ ->
+                    item
+
+                Tool t ->
+                    Tool { t | use = newUse }
         )
 
 
