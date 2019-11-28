@@ -1,11 +1,13 @@
 module Game exposing
     ( Game
     , Msg
-    , program
+    , Size(..)
     , makeGame
     , changeRoomName
     , changeRoomDescription
     , finalize
+    , view
+    , update
     , endGame
     , addRoom
     , deleteRoom
@@ -75,7 +77,8 @@ module Game exposing
 
 ## General
 
-@docs program
+@docs update
+@docs view
 @docs makeGame
 @docs finalize
 @docs endGame
@@ -123,7 +126,8 @@ import Game.Internal
         , View(..)
         , addLog
         )
-import Game.View
+import Game.View exposing (ParentMsg, Size(..))
+import Html exposing (Html)
 import Set
 
 
@@ -137,24 +141,30 @@ type alias Msg =
     Game.Internal.Msg
 
 
-{-| Starts and displays your game.
+type Size
+    = Large
+    | Small
 
-    main : Program () Game Msg
-    main =
-        let
-            ...
-        in
-            Game.program yourGame
 
+{-| Displays the game, taking a parent Msg.
 -}
-program : Game -> Program () Game Msg
-program game =
-    Browser.element
-        { init = \_ -> ( game, Cmd.none )
-        , view = \(Game g) -> Game.View.view g
-        , update = \msg (Game g) -> Game.Internal.update msg g |> Tuple.mapFirst Game
-        , subscriptions = \_ -> Sub.none
-        }
+view : ParentMsg msg -> Size -> Game -> Html msg
+view parentMsg size (Game game) =
+    Game.View.view
+        parentMsg
+        (case size of
+            Large -> Game.View.Large
+            Small -> Game.View.Small
+        )
+        game
+
+
+{-| Updates the game state.
+-}
+update : Msg -> Game -> ( Game, Cmd Msg )
+update msg (Game game) =
+    Game.Internal.update msg game
+        |> Tuple.mapFirst Game
 
 
 {-| Takes a name and creates your new game.
@@ -431,7 +441,7 @@ changeItemDescription newDescription =
 -}
 changeItemUse : ItemUse -> ItemId -> Game -> Game
 changeItemUse newUse =
-    updatItem
+    updateItem
         (\item ->
             case item of
                 Container _ ->

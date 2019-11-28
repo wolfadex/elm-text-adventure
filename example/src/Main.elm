@@ -1,10 +1,29 @@
 module Main exposing (main)
 
-import Game exposing (Game)
+import Browser
+import Game exposing (Game, Size(..))
+import Html exposing (Html)
 
 
-main : Program () Game Game.Msg
+main : Program () Model Msg
 main =
+    Browser.element
+        { init = init
+        , subscriptions = subscriptions
+        , update = update
+        , view = view
+        }
+
+
+type alias Model = Game
+
+
+type Msg
+    = GameMsg Game.Msg
+
+
+init : () -> ( Model, Cmd Msg )
+init _ =
     let
         game1 =
             Game.makeGame "Spaceship"
@@ -12,7 +31,7 @@ main =
         ( cockpit, game2 ) =
             Game.addRoom
                 "Cockpit"
-                "The cockpit of the ship. It has 3 seats and lots of complicated flight controls."
+                "The cockpit of the ship. It has 3 seats and lots of complicated flight controls. And now we're going to make it a really long description for testing."
                 game1
 
         ( commonRoom, game3 ) =
@@ -55,61 +74,79 @@ main =
                 "Your standard fork."
                 (\_ g -> ( g, "You wave the fork in the air, like you just don't care." ))
                 game6
-    in
-    game7
-        |> Game.addConnection
-            { from = cockpit
-            , to = commonRoom
-            , name = "Ladder Down"
-            , description = "Ladder to Common Room"
-            , locked = False
-            , message = "You climb down the ladder to the common room."
-            }
-        |> Game.addConnection
-            { from = commonRoom
-            , to = sleepingQuarters
-            , name = "Ladder Down"
-            , description = "Ladder to Sleeping Quarters"
-            , locked = True
-            , message = "You climb down the ladder to the sleeping quarters." 
-            }
-        |> Game.addConnection
-            { from = commonRoom
-            , to = cockpit
-            , name = "Ladder Up"
-            , description = "Ladder to Cockpit"
-            , locked = False
-            , message = "You climb up the ladder to the cockpit."
-            }
-        |> Game.addConnection
-            { from = sleepingQuarters
-            , to = engineRoom
-            , name = "Ladder Down"
-            , description = "Ladder to Engine Room"
-            , locked = False
-            , message = "You climb down the ladder to the engine room."
-            }
-        |> Game.addConnection
-            { from = sleepingQuarters
-            , to = commonRoom
-            , name = "Ladder Up"
-            , description = "Ladder to Common Room"
-            , locked = False
-            , message = "You climb up the ladder to the common room."
-            }
-        |> Game.addConnection
-            { from = engineRoom
-            , to = sleepingQuarters
-            , name = "Ladder Up"
-            , description = "Ladder to Sleeping Quarters"
-            , locked = False
-            , message = "You climb up the ladder to the sleeping quarters."
-            }
-        |> Game.addItemToRoom bloodyKnife cockpit
-        |> Game.addItemToRoom fork commonRoom
-        |> Game.finalize
-            commonRoom
-            """You wake up in a blurry haze. You seem to be on a spaceship but you have no idea how you got there.
+
+        finalGame =
+            game7
+                |> Game.addConnection
+                    { from = cockpit
+                    , to = commonRoom
+                    , name = "Ladder Down"
+                    , description = "Ladder to Common Room"
+                    , locked = False
+                    , message = "You climb down the ladder to the common room."
+                    }
+                |> Game.addConnection
+                    { from = commonRoom
+                    , to = sleepingQuarters
+                    , name = "Ladder Down"
+                    , description = "Ladder to Sleeping Quarters"
+                    , locked = False
+                    , message = "You climb down the ladder to the sleeping quarters." 
+                    }
+                |> Game.addConnection
+                    { from = commonRoom
+                    , to = cockpit
+                    , name = "Ladder Up"
+                    , description = "Ladder to Cockpit"
+                    , locked = False
+                    , message = "You climb up the ladder to the cockpit."
+                    }
+                |> Game.addConnection
+                    { from = sleepingQuarters
+                    , to = engineRoom
+                    , name = "Ladder Down"
+                    , description = "Ladder to Engine Room"
+                    , locked = False
+                    , message = "You climb down the ladder to the engine room."
+                    }
+                |> Game.addConnection
+                    { from = sleepingQuarters
+                    , to = commonRoom
+                    , name = "Ladder Up"
+                    , description = "Ladder to Common Room"
+                    , locked = False
+                    , message = "You climb up the ladder to the common room."
+                    }
+                |> Game.addConnection
+                    { from = engineRoom
+                    , to = sleepingQuarters
+                    , name = "Ladder Up"
+                    , description = "Ladder to Sleeping Quarters"
+                    , locked = False
+                    , message = "You climb up the ladder to the sleeping quarters."
+                    }
+                |> Game.addItemToRoom bloodyKnife cockpit
+                |> Game.addItemToRoom fork commonRoom
+                |> Game.finalize
+                    commonRoom
+                    """You wake up in a blurry haze. You seem to be on a spaceship but you have no idea how you got there.
 
 Last thing you remember, you were drinking with your friends in a British pub."""
-        |> Game.program
+    in
+    ( finalGame, Cmd.none )
+    
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.none
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update (GameMsg msg) model =
+    Game.update msg model
+        |> Tuple.mapSecond (Cmd.map GameMsg)
+
+
+view : Model -> Html Msg
+view game =
+    Game.view GameMsg Large game

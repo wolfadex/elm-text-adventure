@@ -229,7 +229,7 @@ update msg game =
 
 addLog : String -> { a | log : List String } -> { a | log : List String }
 addLog message ({ log } as data) =
-    { data | log = message :: List.take 10 log }
+    { data | log = message :: List.take 500 log }
 
 
 getItemName : Maybe Item -> String
