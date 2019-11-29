@@ -37,7 +37,7 @@ init _ =
         ( commonRoom, game3 ) =
             Game.addRoom
                 "Common Room"
-                "A shared space for the crew. There's some cabinets, a 3D printer, and places to make food."
+                "A shared space for the crew. There are some cabinets, a 3D printer, and places to make food."
                 game2
 
         ( sleepingQuarters, game4 ) =
@@ -149,4 +149,4 @@ update (GameMsg msg) model =
 
 view : Model -> Html Msg
 view game =
-    Game.view GameMsg Large game
+    Game.view GameMsg Small game

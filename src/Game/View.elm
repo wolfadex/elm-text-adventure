@@ -16,12 +16,12 @@ module Game.View exposing (view, ParentMsg, Size(..))
 -}
 
 import Dict
-import Element exposing (Element, Color)
+import Element exposing (Element, Color, Attribute)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
-import Game.Internal exposing (Game, Id, Item(..), Mode(..), Msg(..), RoomId(..), View(..), Locked(..), Connection)
+import Game.Internal exposing (Game, Detail(..), Id, Item(..), Mode(..), Msg(..), RoomId(..), Locked(..), Connection)
 import Html exposing (Html)
 import Html.Attributes
 import Set exposing (Set)
@@ -44,7 +44,7 @@ view parentMsg size game =
         ]
         (case game.mode of
             Running ->
-                viewRunning parentMsg game
+                viewRunning parentMsg size game
 
             Finished ->
                 viewFinished parentMsg game
@@ -54,50 +54,106 @@ view parentMsg size game =
         )
 
 
-viewRunning : ParentMsg msg -> Game -> Element msg
-viewRunning parentMsg game =
-    Element.row
-        [ Element.centerX
-        , Element.width (Element.fill |> Element.maximum (scaled 22))
-        , Element.height Element.fill
-        , Font.color colorWhite
-        , mobileStyling
-        , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
-        ]
-        [ customStyles
-        , Element.column
-            [ Element.width Element.fill
-            , Element.height Element.fill
-            ]
-            [ viewGameName game.name
-            , spacerHorizontal
-            , viewRoomDesc game
-            , spacerHorizontal
-            , viewExits parentMsg game
-            , spacerHorizontal
-            , game
+viewRunning : ParentMsg msg -> Size -> Game -> Element msg
+viewRunning parentMsg size game =
+    let
+        nameView = viewGameName game.name
+
+        roomDescView = viewRoomDesc parentMsg size game
+
+        exitView = viewExits parentMsg size game
+
+        itemView =
+            game
                 |> Game.Internal.getCurrentRoom
                 |> .contents
-                |> viewItemList "Items in Room" (viewRoomItem parentMsg) game
-            , spacerHorizontal
-            , game
+                |> viewItemList (parentMsg ToggleRoomItems) .roomItemsDetail size "Items in Room" (viewRoomItem parentMsg) game
+
+        inventoryView =
+            game
                 |> .inventory
-                |> viewItemList "Inventory" (viewPlayerItem parentMsg) game
-            ]
-        , spacerVertical
-        , viewGameLog game
+                |> viewItemList (parentMsg ToggleInventory) .inventoryDetail size "Inventory" (viewPlayerItem parentMsg) game
+    in
+    case size of
+        Large ->
+            Element.row
+                [ Element.centerX
+                , Element.width (Element.fill |> Element.maximum (scaled 22))
+                , Element.height Element.fill
+                , Font.color colorWhite
+                , mobileStyling
+                , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
+                ]
+                [ customStyles
+                , Element.column
+                    [ Element.width Element.fill
+                    , Element.height Element.fill
+                    ]
+                    [ nameView
+                    , spacerHorizontal
+                    , roomDescView
+                    , spacerHorizontal
+                    , exitView
+                    , spacerHorizontal
+                    , itemView
+                    , spacerHorizontal
+                    , inventoryView
+                    ]
+                , spacerVertical
+                , viewGameLog game
+                ]
+
+        Small ->
+            Element.column
+                [ Element.centerX
+                , Element.width Element.fill
+                , Element.height Element.fill
+                , Font.color colorWhite
+                , mobileStyling
+                , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
+                ]
+                [ customStyles
+                , nameView
+                , spacerHorizontal
+                , roomDescView
+                , spacerHorizontal
+                , exitView
+                , spacerHorizontal
+                , itemView
+                , spacerHorizontal
+                , inventoryView
+                , spacerHorizontal
+                , viewGameLog game
+                ]
+
+
+viewCollapsible : msg -> Detail -> String -> Element msg -> Element msg
+viewCollapsible action detailState label child =
+    Element.column
+        [ Element.padding (scaled 1)
+        , Element.width Element.fill
+        , Background.color colorGrayLight
         ]
-        --[ Element.wrappedRow
-        --    [ Element.padding (scaled 1)
-        --    , Element.spaceEvenly
-        --    , Element.width Element.fill
-        --    ]
-        --    [ button { label = "Describe Room", action = Just (parentMsg (SetView RoomDescription)) }
-        --    , button { label = "Search Room", action = Just (parentMsg (SetView RoomInventory)) }
-        --    , button { label = "Exits", action = Just (parentMsg (SetView RoomExits)) }
-        --    , button { label = "Inventory", action = Just (parentMsg (SetView PersonInventory)) }
-        --    ]
-        --]
+        [ Element.row
+            []
+            [ button
+                { label = case detailState of
+                            Expanded -> ">"
+                            Collapsed -> "^"
+                , action = Just action
+                }
+            , Element.el 
+                [ Element.paddingXY (scaled 1) 0]
+                (Element.text (label ++ ":"))
+            ]
+        , case detailState of
+            Expanded ->
+                child
+
+            Collapsed ->
+                Element.none
+        ]
+
 
 
 viewGameName : String -> Element msg
@@ -134,39 +190,78 @@ viewBuilding =
     Element.none
 
 
-viewRoomDesc : Game -> Element msg
-viewRoomDesc game =
+viewRoomDesc : ParentMsg msg -> Size -> Game -> Element msg
+viewRoomDesc parentMsg size game =
     let
         currentRoom = Game.Internal.getCurrentRoom game
     in
-    Element.paragraph
-        [ Element.padding (scaled 1)
-        , whiteSpacePre
-        , mobileStyling
-        , Background.color colorGrayLight
-        , Element.scrollbarY
-        , Element.height Element.fill
-        ]
-        [ Element.text (.name currentRoom ++ ":")
-        , Element.text (.description currentRoom)
-        ]
+    case size of
+        Large ->
+            Element.paragraph
+                [ Element.padding (scaled 1)
+                , whiteSpacePre
+                , mobileStyling
+                , Background.color colorGrayLight
+                , Element.scrollbarY
+                , Element.height Element.fill
+                ]
+                [ Element.text (.name currentRoom ++ ":")
+                , Element.text (.description currentRoom)
+                ]
+
+        Small ->
+            viewCollapsible
+                (parentMsg ToggleDescription)
+                game.descriptionDetail
+                (.name currentRoom)
+                (Element.paragraph
+                    [ Element.padding (scaled 1)
+                    , whiteSpacePre
+                    , mobileStyling
+                    , Background.color colorGrayLight
+                    , Element.scrollbarY
+                    , Element.height Element.fill
+                    ]
+                    [ Element.text (.description currentRoom)
+                    ]
+                )
 
 
-viewExits : ParentMsg msg -> Game -> Element msg
-viewExits parentMsg game =
-    Element.column
-        [ Element.spacing (scaled 1)
-        , Element.padding (scaled 1)
-        , Element.scrollbarY
-        , Background.color colorGrayLight
-        , Element.width Element.fill
-        , Element.height Element.fill
-        ]
-        (Element.text "Exits:"
-            :: List.map
+viewExits : ParentMsg msg -> Size -> Game -> Element msg
+viewExits parentMsg size game =
+    let
+        exits =
+            List.map
                 (viewExit parentMsg)
                 (game |> Game.Internal.getCurrentRoom |> .connections)
-        )
+    in
+    case size of
+        Large ->
+            Element.column
+                [ Element.spacing (scaled 1)
+                , Element.padding (scaled 1)
+                , Element.scrollbarY
+                , Background.color colorGrayLight
+                , Element.width Element.fill
+                , Element.height Element.fill
+                ]
+                (Element.text "Exits:" :: exits)
+
+        Small ->
+            viewCollapsible
+                (parentMsg ToggleExits)
+                game.exitsDetail
+                "Exits"
+                (Element.column
+                    [ Element.spacing (scaled 1)
+                    , Element.padding (scaled 1)
+                    , Element.scrollbarY
+                    , Background.color colorGrayLight
+                    , Element.width Element.fill
+                    , Element.height Element.fill
+                    ]
+                    exits
+                )
 
 
 viewExit : ParentMsg msg -> Connection -> Element msg
@@ -192,25 +287,38 @@ viewExit parentMsg { name, description, to, locked, message } =
         ]
 
 
-viewItemList : String -> (Id -> ( String, String ) -> List (Element msg)) -> Game -> Set Id -> Element msg
-viewItemList label viewFn game idSet =
-    if Set.isEmpty idSet then
-        Element.column itemListStyle
-            [ Element.text (label ++ ":")
-            , Element.text "Empty"
-            ]
-    else
-        idSet
-            |> (\ids -> Dict.filter (\id _ -> Set.member id ids) game.items)
-            |> Dict.toList
-            |> List.map
-                (\( id, item ) ->
-                    viewItemContainer id item viewFn
-                )
-            |> (::) (Element.text (label ++ ":"))
-            |> Element.column itemListStyle
+viewItemList : msg -> (Game -> Detail) -> Size -> String -> (Id -> ( String, String ) -> List (Element msg)) -> Game -> Set Id -> Element msg
+viewItemList toggleAction getDetailState size label viewFn game idSet =
+    let
+        content =
+            if Set.isEmpty idSet then
+                [ Element.text "Empty" ]
+
+            else
+                idSet
+                    |> (\ids -> Dict.filter (\id _ -> Set.member id ids) game.items)
+                    |> Dict.toList
+                    |> List.map
+                        (\( id, item ) ->
+                            viewItemContainer id item viewFn
+                        )
+
+    in
+    case size of
+        Large ->
+            Element.column
+                itemListStyle
+                (Element.text (label ++ ":") :: content)
+
+        Small ->
+            viewCollapsible
+                toggleAction
+                (getDetailState game)
+                label
+                (Element.column itemListStyle content)
 
 
+itemListStyle : List (Attribute msg)
 itemListStyle =
     [ Element.spacing (scaled 1)
     , Element.padding (scaled 1)

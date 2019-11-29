@@ -2,6 +2,7 @@ module Game.Internal exposing
     ( Description
     , Game
     , Connection
+    , Detail (..)
     , Id
     , Item(..)
     , ItemId(..)
@@ -13,7 +14,6 @@ module Game.Internal exposing
     , Name
     , Room
     , RoomId(..)
-    , View(..)
     , addLog
     , fallbackRoom
     , getCurrentRoom
@@ -81,24 +81,32 @@ type alias Game =
     , name : String
     , buildId : Int
     , currentRoom : RoomId
-    , viewing : View
     , log : List String
     , inventory : Set Id
     , mode : Mode
+    , descriptionDetail : Detail
+    , exitsDetail : Detail
+    , roomItemsDetail : Detail
+    , inventoryDetail : Detail
     }
+
+
+type Detail
+    = Expanded
+    | Collapsed
+
+
+toggleDetail : Detail -> Detail
+toggleDetail detail =
+    case detail of
+        Expanded -> Collapsed
+        Collapsed -> Expanded
 
 
 type Mode
     = Building
     | Running
     | Finished
-
-
-type View
-    = RoomDescription
-    | RoomExits
-    | RoomInventory
-    | PersonInventory
 
 
 type alias Connection =
@@ -116,12 +124,15 @@ type Locked
 
 
 type Msg
-    = SetView View
-    | MoveRoom RoomId Message
+    = MoveRoom RoomId Message
     | PickUpItem Id
     | DropItem Id
     | UseItem Id
     | Restart
+    | ToggleDescription
+    | ToggleExits
+    | ToggleRoomItems
+    | ToggleInventory
 
 
 type alias Name =
@@ -141,9 +152,6 @@ update msg game =
     case msg of
         Restart ->
             ( game, Browser.Navigation.reload )
-
-        SetView v ->
-            ( { game | viewing = v }, Cmd.none )
 
         MoveRoom nextRoom message ->
             ( game
@@ -226,6 +234,18 @@ update msg game =
             in
             ( addLog message nextGame, Cmd.none )
 
+        ToggleDescription ->
+            ( { game | descriptionDetail = toggleDetail game.descriptionDetail }, Cmd.none )
+
+        ToggleExits ->
+            ( { game | exitsDetail = toggleDetail game.exitsDetail }, Cmd.none )
+
+        ToggleRoomItems ->
+            ( { game | roomItemsDetail = toggleDetail game.roomItemsDetail }, Cmd.none )
+
+        ToggleInventory ->
+            ( { game | inventoryDetail = toggleDetail game.inventoryDetail }, Cmd.none )
+
 
 addLog : String -> { a | log : List String } -> { a | log : List String }
 addLog message ({ log } as data) =
@@ -267,4 +287,4 @@ getCurrentRoom { rooms, currentRoom } =
 
 setRoom : RoomId -> Game -> Game
 setRoom room game =
-    { game | viewing = RoomDescription, currentRoom = room }
+    { game | currentRoom = room }

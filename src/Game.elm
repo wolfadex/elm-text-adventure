@@ -107,12 +107,12 @@ module Game exposing
 
 -}
 
-import Browser
 import Dict
 import Game.Internal
     exposing
         ( Description
         , Game
+        , Detail(..)
         , Item(..)
         , ItemId(..)
         , ItemUse
@@ -123,7 +123,6 @@ import Game.Internal
         , Name
         , Room
         , RoomId(..)
-        , View(..)
         , addLog
         )
 import Game.View exposing (ParentMsg, Size(..))
@@ -180,10 +179,13 @@ makeGame name =
         , name = name
         , buildId = 0
         , currentRoom = RoomId -1
-        , viewing = RoomDescription
         , log = []
         , inventory = Set.empty
         , mode = Building
+        , descriptionDetail = Expanded
+        , exitsDetail = Collapsed
+        , roomItemsDetail = Collapsed
+        , inventoryDetail = Collapsed
         }
 
 
@@ -466,25 +468,20 @@ updateItem changeToMake (ItemId itemId) (Game game) =
         }
 
 
-{-| Creates a container that can be placed in a room or on your player.
-
-    createContainer "Name" "Description" yourGame
-
--}
-createContainer : Name -> Description -> Game -> ( ItemId, Game )
-createContainer name description (Game ({ buildId, items } as game)) =
-    let
-        item =
-            Container { name = name, description = description, contents = Set.empty }
-    in
-    ( ItemId buildId
-    , Game
-        { game
-            | items =
-                Dict.insert buildId item items
-            , buildId = buildId + 1
-        }
-    )
+--createContainer : Name -> Description -> Game -> ( ItemId, Game )
+--createContainer name description (Game ({ buildId, items } as game)) =
+--    let
+--        item =
+--            Container { name = name, description = description, contents = Set.empty }
+--    in
+--    ( ItemId buildId
+--    , Game
+--        { game
+--            | items =
+--                Dict.insert buildId item items
+--            , buildId = buildId + 1
+--        }
+--    )
 
 
 {-| Adds the specified item to the game.
