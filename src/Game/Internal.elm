@@ -143,6 +143,7 @@ type Msg
     | ToggleExits
     | ToggleRoomItems
     | ToggleInventory
+    | ToggleTheme
 
 
 type alias Name =
@@ -167,6 +168,19 @@ update msg game =
             ( game
                 |> setRoom nextRoom
                 |> addLog message
+            , Cmd.none
+            )
+
+        ToggleTheme ->
+            ( { game
+                | theme =
+                    case game.theme of
+                        Light ->
+                            Dark
+
+                        Dark ->
+                            Light
+              }
             , Cmd.none
             )
 

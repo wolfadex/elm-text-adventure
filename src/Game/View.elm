@@ -17,7 +17,7 @@ module Game.View exposing (ParentMsg, Size(..), view)
 
 import Color exposing (ColorSet)
 import Dict
-import Element exposing (Attribute, Element, Color)
+import Element exposing (Attribute, Color, Element)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
@@ -60,15 +60,18 @@ view parentMsg size game =
 colorFromTheme : (ColorSet -> Color) -> Theme -> Color
 colorFromTheme part theme =
     case theme of
-        Light -> part Color.light
-        Dark -> part Color.dark
+        Light ->
+            part Color.light
+
+        Dark ->
+            part Color.dark
 
 
 viewRunning : ParentMsg msg -> Size -> Game -> Element msg
 viewRunning parentMsg size game =
     let
         nameView =
-            viewGameName game.theme game.name
+            viewGameName game.theme parentMsg game.name
 
         roomDescView =
             viewRoomDesc parentMsg size game
@@ -93,8 +96,6 @@ viewRunning parentMsg size game =
                 [ Element.centerX
                 , Element.width (Element.fill |> Element.maximum (scaled 22))
                 , Element.height Element.fill
-                , mobileStyling
-                , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
                 ]
                 [ customStyles
                 , Element.column
@@ -121,8 +122,6 @@ viewRunning parentMsg size game =
                 , Element.width Element.fill
                 , Element.height Element.fill
                 , Font.size 32
-                , mobileStyling
-                , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
                 ]
                 [ customStyles
                 , nameView
@@ -172,14 +171,25 @@ viewCollapsible theme action detailState label child =
         ]
 
 
-viewGameName : Theme -> String -> Element msg
-viewGameName theme  name =
-    Element.el
+viewGameName : Theme -> ParentMsg msg -> String -> Element msg
+viewGameName theme parentMsg name =
+    Element.row
         [ Element.padding (scaled 1)
         , Element.width Element.fill
         , Background.color (colorFromTheme .background theme)
         ]
-        (Element.text name)
+        [ Element.el
+            [ Element.width Element.fill ]
+            (Element.text name)
+        , button
+            { label =
+                case theme of
+                    Light -> "Dark"
+                    Dark -> "Light"
+            , action = Just (parentMsg ToggleTheme)
+            , theme = theme
+            }
+        ]
 
 
 viewFinished : ParentMsg msg -> Game -> Element msg
@@ -189,8 +199,6 @@ viewFinished parentMsg game =
         , Element.width (Element.fill |> Element.maximum (scaled 18))
         , Element.height Element.fill
         , Background.color (colorFromTheme .background game.theme)
-        , mobileStyling
-        , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
         ]
         [ customStyles
         , viewGameLog game
@@ -216,7 +224,6 @@ viewRoomDesc parentMsg size game =
             Element.paragraph
                 [ Element.padding (scaled 1)
                 , whiteSpacePre
-                , mobileStyling
                 , Background.color (colorFromTheme .background game.theme)
                 , Element.scrollbarY
                 , Element.height Element.fill
@@ -234,7 +241,6 @@ viewRoomDesc parentMsg size game =
                 (Element.paragraph
                     [ Element.padding (scaled 1)
                     , whiteSpacePre
-                    , mobileStyling
                     , Background.color (colorFromTheme .background game.theme)
                     , Element.scrollbarY
                     , Element.height Element.fill
@@ -285,7 +291,7 @@ viewExits parentMsg size game =
 viewExit : Theme -> ParentMsg msg -> Connection -> Element msg
 viewExit theme parentMsg { name, description, to, locked, message } =
     Element.wrappedRow
-        [ mobileStyling ]
+        []
         [ button
             { label = name
             , action =
@@ -360,7 +366,7 @@ viewItemContainer id item viewFn =
                     ( name, description )
     in
     Element.wrappedRow
-        [ mobileStyling ]
+        []
         (viewFn id nameDesc)
 
 
@@ -389,7 +395,7 @@ viewGameLog game =
     case game.mode of
         Running ->
             game.log
-                |> List.map (\log -> Element.paragraph [ whiteSpacePre, mobileStyling ] [ Element.text log ])
+                |> List.map (\log -> Element.paragraph [ whiteSpacePre ] [ Element.text log ])
                 |> List.intersperse (logSeparator game.theme)
                 |> Element.column
                     [ Element.spacing <| scaled 1
@@ -403,7 +409,7 @@ viewGameLog game =
         Finished ->
             game.log
                 |> List.take 2
-                |> List.map (\log -> Element.paragraph [ whiteSpacePre, mobileStyling ] [ Element.text log ])
+                |> List.map (\log -> Element.paragraph [ whiteSpacePre ] [ Element.text log ])
                 |> List.intersperse (logSeparator game.theme)
                 |> Element.column
                     [ Element.padding (scaled 1)
@@ -442,7 +448,7 @@ button { label, action, theme } =
             { offset = ( 1, 1 )
             , size = 1
             , blur = 2
-            , color = (colorFromTheme .button theme)
+            , color = colorFromTheme .button theme
             }
         , Border.rounded 3
         , Element.paddingXY 5 1
@@ -452,8 +458,7 @@ button { label, action, theme } =
                     Element.rgb 0.4 0.4 0.2
 
                 Just _ ->
-                    (colorFromTheme .button theme)
-        , mobileStyling
+                    colorFromTheme .button theme
         ]
         { onPress = action
         , label = Element.text label
@@ -487,27 +492,12 @@ whiteSpacePre =
     Html.Attributes.class "wolfadex__elm-text-adventure__white-space_pre" |> Element.htmlAttribute
 
 
-mobileStyling : Element.Attribute msg
-mobileStyling =
-    Html.Attributes.class "wolfadex__elm-text-adventure__mobile" |> Element.htmlAttribute
-
-
 customStyles : Element msg
 customStyles =
     Element.html <|
         Html.node "style"
             []
             [ Html.text """
-/*@media only screen and (max-width: 600px) {
-  .wolfadex__elm-text-adventure__mobile.wolfadex__elm-text-adventure__main-view {
-    max-width: 100%;
-  }
-
-  .wolfadex__elm-text-adventure__mobile > .t {
-    font-size: 3rem !important;
-  }
-}*/
-
 .wolfadex__elm-text-adventure__white-space_pre > .t {
   white-space: pre-wrap !important;
 }""" ]
