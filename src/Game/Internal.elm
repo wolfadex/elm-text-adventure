@@ -1,8 +1,8 @@
 module Game.Internal exposing
-    ( Description
+    ( Connection
+    , Description
+    , Detail(..)
     , Game
-    , Connection
-    , Detail (..)
     , Id
     , Item(..)
     , ItemId(..)
@@ -14,6 +14,7 @@ module Game.Internal exposing
     , Name
     , Room
     , RoomId(..)
+    , Theme(..)
     , addLog
     , fallbackRoom
     , getCurrentRoom
@@ -88,7 +89,13 @@ type alias Game =
     , exitsDetail : Detail
     , roomItemsDetail : Detail
     , inventoryDetail : Detail
+    , theme : Theme
     }
+
+
+type Theme
+    = Light
+    | Dark
 
 
 type Detail
@@ -99,8 +106,11 @@ type Detail
 toggleDetail : Detail -> Detail
 toggleDetail detail =
     case detail of
-        Expanded -> Collapsed
-        Collapsed -> Expanded
+        Expanded ->
+            Collapsed
+
+        Collapsed ->
+            Expanded
 
 
 type Mode

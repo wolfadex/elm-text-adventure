@@ -123,6 +123,7 @@ import Game.Internal
         , Name
         , Room
         , RoomId(..)
+        , Theme(..)
         , addLog
         )
 import Game.View exposing (ParentMsg, Size(..))
@@ -186,6 +187,7 @@ makeGame name =
         , exitsDetail = Collapsed
         , roomItemsDetail = Collapsed
         , inventoryDetail = Collapsed
+        , theme = Light
         }
 
 

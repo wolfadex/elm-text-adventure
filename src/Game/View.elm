@@ -1,4 +1,4 @@
-module Game.View exposing (view, ParentMsg, Size(..))
+module Game.View exposing (ParentMsg, Size(..), view)
 
 {-| The program for playing your game.
 
@@ -15,19 +15,21 @@ module Game.View exposing (view, ParentMsg, Size(..))
 
 -}
 
+import Color exposing (ColorSet)
 import Dict
-import Element exposing (Element, Color, Attribute)
+import Element exposing (Attribute, Element, Color)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
-import Game.Internal exposing (Game, Detail(..), Id, Item(..), Mode(..), Msg(..), RoomId(..), Locked(..), Connection)
+import Game.Internal exposing (Connection, Detail(..), Game, Id, Item(..), Locked(..), Mode(..), Msg(..), RoomId(..), Theme(..))
 import Html exposing (Html)
 import Html.Attributes
 import Set exposing (Set)
 
 
-type alias ParentMsg msg = Msg -> msg
+type alias ParentMsg msg =
+    Msg -> msg
 
 
 type Size
@@ -40,7 +42,8 @@ view parentMsg size game =
     Element.layout
         [ Element.width Element.fill
         , Element.height Element.fill
-        , Background.color <| Element.rgb 0.1 0.1 0.1
+        , Background.color (colorFromTheme .background game.theme)
+        , Font.color (colorFromTheme .font game.theme)
         ]
         (case game.mode of
             Running ->
@@ -54,25 +57,35 @@ view parentMsg size game =
         )
 
 
+colorFromTheme : (ColorSet -> Color) -> Theme -> Color
+colorFromTheme part theme =
+    case theme of
+        Light -> part Color.light
+        Dark -> part Color.dark
+
+
 viewRunning : ParentMsg msg -> Size -> Game -> Element msg
 viewRunning parentMsg size game =
     let
-        nameView = viewGameName game.name
+        nameView =
+            viewGameName game.theme game.name
 
-        roomDescView = viewRoomDesc parentMsg size game
+        roomDescView =
+            viewRoomDesc parentMsg size game
 
-        exitView = viewExits parentMsg size game
+        exitView =
+            viewExits parentMsg size game
 
         itemView =
             game
                 |> Game.Internal.getCurrentRoom
                 |> .contents
-                |> viewItemList (parentMsg ToggleRoomItems) .roomItemsDetail size "Items in Room" (viewRoomItem parentMsg) game
+                |> viewItemList (parentMsg ToggleRoomItems) .roomItemsDetail size "Items in Room" (viewRoomItem game.theme parentMsg) game
 
         inventoryView =
             game
                 |> .inventory
-                |> viewItemList (parentMsg ToggleInventory) .inventoryDetail size "Inventory" (viewPlayerItem parentMsg) game
+                |> viewItemList (parentMsg ToggleInventory) .inventoryDetail size "Inventory" (viewPlayerItem game.theme parentMsg) game
     in
     case size of
         Large ->
@@ -80,7 +93,6 @@ viewRunning parentMsg size game =
                 [ Element.centerX
                 , Element.width (Element.fill |> Element.maximum (scaled 22))
                 , Element.height Element.fill
-                , Font.color colorWhite
                 , mobileStyling
                 , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
                 ]
@@ -90,16 +102,16 @@ viewRunning parentMsg size game =
                     , Element.height Element.fill
                     ]
                     [ nameView
-                    , spacerHorizontal
+                    , spacerHorizontal game.theme
                     , roomDescView
-                    , spacerHorizontal
+                    , spacerHorizontal game.theme
                     , exitView
-                    , spacerHorizontal
+                    , spacerHorizontal game.theme
                     , itemView
-                    , spacerHorizontal
+                    , spacerHorizontal game.theme
                     , inventoryView
                     ]
-                , spacerVertical
+                , spacerVertical game.theme
                 , viewGameLog game
                 ]
 
@@ -108,43 +120,47 @@ viewRunning parentMsg size game =
                 [ Element.centerX
                 , Element.width Element.fill
                 , Element.height Element.fill
-                , Font.color colorWhite
                 , Font.size 32
                 , mobileStyling
                 , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
                 ]
                 [ customStyles
                 , nameView
-                , spacerHorizontal
+                , spacerHorizontal game.theme
                 , roomDescView
-                , spacerHorizontal
+                , spacerHorizontal game.theme
                 , exitView
-                , spacerHorizontal
+                , spacerHorizontal game.theme
                 , itemView
-                , spacerHorizontal
+                , spacerHorizontal game.theme
                 , inventoryView
-                , spacerHorizontal
+                , spacerHorizontal game.theme
                 , viewGameLog game
                 ]
 
 
-viewCollapsible : msg -> Detail -> String -> Element msg -> Element msg
-viewCollapsible action detailState label child =
+viewCollapsible : Theme -> msg -> Detail -> String -> Element msg -> Element msg
+viewCollapsible theme action detailState label child =
     Element.column
         [ Element.padding (scaled 1)
         , Element.width Element.fill
-        , Background.color colorGrayLight
+        , Background.color (colorFromTheme .background theme)
         ]
         [ Element.row
             []
             [ button
-                { label = case detailState of
-                            Expanded -> ">"
-                            Collapsed -> "^"
+                { label =
+                    case detailState of
+                        Expanded ->
+                            ">"
+
+                        Collapsed ->
+                            "^"
                 , action = Just action
+                , theme = theme
                 }
-            , Element.el 
-                [ Element.paddingXY (scaled 1) 0]
+            , Element.el
+                [ Element.paddingXY (scaled 1) 0 ]
                 (Element.text (label ++ ":"))
             ]
         , case detailState of
@@ -156,13 +172,12 @@ viewCollapsible action detailState label child =
         ]
 
 
-
-viewGameName : String -> Element msg
-viewGameName name =
+viewGameName : Theme -> String -> Element msg
+viewGameName theme  name =
     Element.el
         [ Element.padding (scaled 1)
         , Element.width Element.fill
-        , Background.color colorGrayLight
+        , Background.color (colorFromTheme .background theme)
         ]
         (Element.text name)
 
@@ -173,8 +188,7 @@ viewFinished parentMsg game =
         [ Element.centerX
         , Element.width (Element.fill |> Element.maximum (scaled 18))
         , Element.height Element.fill
-        , Background.color colorGrayLight
-        , Font.color colorWhite
+        , Background.color (colorFromTheme .background game.theme)
         , mobileStyling
         , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
         ]
@@ -182,7 +196,7 @@ viewFinished parentMsg game =
         , viewGameLog game
         , Element.el
             [ Element.padding (scaled 2) ]
-            (button { label = "Restart", action = Just (parentMsg Restart) })
+            (button { label = "Restart", action = Just (parentMsg Restart), theme = game.theme })
         ]
 
 
@@ -194,7 +208,8 @@ viewBuilding =
 viewRoomDesc : ParentMsg msg -> Size -> Game -> Element msg
 viewRoomDesc parentMsg size game =
     let
-        currentRoom = Game.Internal.getCurrentRoom game
+        currentRoom =
+            Game.Internal.getCurrentRoom game
     in
     case size of
         Large ->
@@ -202,7 +217,7 @@ viewRoomDesc parentMsg size game =
                 [ Element.padding (scaled 1)
                 , whiteSpacePre
                 , mobileStyling
-                , Background.color colorGrayLight
+                , Background.color (colorFromTheme .background game.theme)
                 , Element.scrollbarY
                 , Element.height Element.fill
                 ]
@@ -212,6 +227,7 @@ viewRoomDesc parentMsg size game =
 
         Small ->
             viewCollapsible
+                game.theme
                 (parentMsg ToggleDescription)
                 game.descriptionDetail
                 (.name currentRoom)
@@ -219,7 +235,7 @@ viewRoomDesc parentMsg size game =
                     [ Element.padding (scaled 1)
                     , whiteSpacePre
                     , mobileStyling
-                    , Background.color colorGrayLight
+                    , Background.color (colorFromTheme .background game.theme)
                     , Element.scrollbarY
                     , Element.height Element.fill
                     ]
@@ -233,7 +249,7 @@ viewExits parentMsg size game =
     let
         exits =
             List.map
-                (viewExit parentMsg)
+                (viewExit game.theme parentMsg)
                 (game |> Game.Internal.getCurrentRoom |> .connections)
     in
     case size of
@@ -242,7 +258,7 @@ viewExits parentMsg size game =
                 [ Element.spacing (scaled 1)
                 , Element.padding (scaled 1)
                 , Element.scrollbarY
-                , Background.color colorGrayLight
+                , Background.color (colorFromTheme .background game.theme)
                 , Element.width Element.fill
                 , Element.height Element.fill
                 ]
@@ -250,6 +266,7 @@ viewExits parentMsg size game =
 
         Small ->
             viewCollapsible
+                game.theme
                 (parentMsg ToggleExits)
                 game.exitsDetail
                 "Exits"
@@ -257,7 +274,7 @@ viewExits parentMsg size game =
                     [ Element.spacing (scaled 1)
                     , Element.padding (scaled 1)
                     , Element.scrollbarY
-                    , Background.color colorGrayLight
+                    , Background.color (colorFromTheme .background game.theme)
                     , Element.width Element.fill
                     , Element.height Element.fill
                     ]
@@ -265,8 +282,8 @@ viewExits parentMsg size game =
                 )
 
 
-viewExit : ParentMsg msg -> Connection -> Element msg
-viewExit parentMsg { name, description, to, locked, message } =
+viewExit : Theme -> ParentMsg msg -> Connection -> Element msg
+viewExit theme parentMsg { name, description, to, locked, message } =
     Element.wrappedRow
         [ mobileStyling ]
         [ button
@@ -278,6 +295,7 @@ viewExit parentMsg { name, description, to, locked, message } =
 
                     Unlocked ->
                         Just (parentMsg (MoveRoom to message))
+            , theme = theme
             }
         , buttonSpacer
         , Element.el
@@ -303,28 +321,28 @@ viewItemList toggleAction getDetailState size label viewFn game idSet =
                         (\( id, item ) ->
                             viewItemContainer id item viewFn
                         )
-
     in
     case size of
         Large ->
             Element.column
-                itemListStyle
+                (itemListStyle game.theme)
                 (Element.text (label ++ ":") :: content)
 
         Small ->
             viewCollapsible
+                game.theme
                 toggleAction
                 (getDetailState game)
                 label
-                (Element.column itemListStyle content)
+                (Element.column (itemListStyle game.theme) content)
 
 
-itemListStyle : List (Attribute msg)
-itemListStyle =
+itemListStyle : Theme -> List (Attribute msg)
+itemListStyle theme =
     [ Element.spacing (scaled 1)
     , Element.padding (scaled 1)
     , Element.scrollbarY
-    , Background.color colorGrayLight
+    , Background.color (colorFromTheme .background theme)
     , Element.width Element.fill
     , Element.height Element.fill
     ]
@@ -346,19 +364,19 @@ viewItemContainer id item viewFn =
         (viewFn id nameDesc)
 
 
-viewRoomItem : ParentMsg msg -> Id -> ( String, String ) -> List (Element msg)
-viewRoomItem parentMsg id ( n, d ) =
-    [ button { label = n, action = Just (parentMsg (PickUpItem id)) }
+viewRoomItem : Theme -> ParentMsg msg -> Id -> ( String, String ) -> List (Element msg)
+viewRoomItem theme parentMsg id ( n, d ) =
+    [ button { label = n, action = Just (parentMsg (PickUpItem id)), theme = theme }
     , buttonSpacer
     , Element.text d
     ]
 
 
-viewPlayerItem : ParentMsg msg -> Id -> ( String, String ) -> List (Element msg)
-viewPlayerItem parentMsg id ( n, d ) =
-    [ button { label = "Drop", action = Just (parentMsg (DropItem id)) }
+viewPlayerItem : Theme -> ParentMsg msg -> Id -> ( String, String ) -> List (Element msg)
+viewPlayerItem theme parentMsg id ( n, d ) =
+    [ button { label = "Drop", action = Just (parentMsg (DropItem id)), theme = theme }
     , buttonSpacer
-    , button { label = "Use", action = Just (parentMsg (UseItem id)) }
+    , button { label = "Use", action = Just (parentMsg (UseItem id)), theme = theme }
     , buttonSpacer
     , Element.text <| n ++ ":"
     , buttonSpacer
@@ -372,68 +390,69 @@ viewGameLog game =
         Running ->
             game.log
                 |> List.map (\log -> Element.paragraph [ whiteSpacePre, mobileStyling ] [ Element.text log ])
-                |> List.intersperse logSeparator
+                |> List.intersperse (logSeparator game.theme)
                 |> Element.column
                     [ Element.spacing <| scaled 1
                     , Element.padding <| scaled 1
                     , Element.scrollbarY
                     , Element.width Element.fill
                     , Element.height Element.fill
-                    , Background.color colorGrayLight
+                    , Background.color (colorFromTheme .background game.theme)
                     ]
 
         Finished ->
             game.log
                 |> List.take 2
                 |> List.map (\log -> Element.paragraph [ whiteSpacePre, mobileStyling ] [ Element.text log ])
-                |> List.intersperse logSeparator
+                |> List.intersperse (logSeparator game.theme)
                 |> Element.column
                     [ Element.padding (scaled 1)
                     , Element.spacing (scaled 1)
-                    , Background.color colorGrayLight
+                    , Background.color (colorFromTheme .background game.theme)
                     ]
 
         Building ->
             Element.none
 
 
-spacerHorizontal : Element msg
-spacerHorizontal =
+spacerHorizontal : Theme -> Element msg
+spacerHorizontal theme =
     Element.el
-        [ Border.color colorGrayDark
+        [ Border.color (colorFromTheme .border theme)
         , Border.width 3
         , Element.width Element.fill
         ]
         Element.none
 
 
-spacerVertical : Element msg
-spacerVertical =
+spacerVertical : Theme -> Element msg
+spacerVertical theme =
     Element.el
-        [ Border.color colorGrayDark
+        [ Border.color (colorFromTheme .border theme)
         , Border.width 3
         , Element.height Element.fill
         ]
         Element.none
 
 
-button : { label : String, action : Maybe msg } -> Element msg
-button { label, action } =
+button : { label : String, action : Maybe msg, theme : Theme } -> Element msg
+button { label, action, theme } =
     Input.button
         [ Border.shadow
             { offset = ( 1, 1 )
             , size = 1
             , blur = 2
-            , color = Element.rgba 1 1 1 0.5
+            , color = (colorFromTheme .button theme)
             }
-        , Element.paddingXY 3 1
+        , Border.rounded 3
+        , Element.paddingXY 5 1
         , Background.color <|
             case action of
                 Nothing ->
                     Element.rgb 0.4 0.4 0.2
 
                 Just _ ->
-                    Element.rgb 0.4 0.4 0.8
+                    (colorFromTheme .button theme)
         , mobileStyling
         ]
         { onPress = action
@@ -448,12 +467,12 @@ buttonSpacer =
         Element.none
 
 
-logSeparator : Element msg
-logSeparator =
+logSeparator : Theme -> Element msg
+logSeparator theme =
     Element.el
         [ Element.width Element.fill
         , Border.width 1
-        , Border.color (Element.rgb 0.4 0.4 0.4)
+        , Border.color (colorFromTheme .border theme)
         ]
         Element.none
 
@@ -461,21 +480,6 @@ logSeparator =
 scaled : Int -> Int
 scaled i =
     Element.modular 16 1.25 i |> floor
-
-
-colorGrayDark : Color
-colorGrayDark =
-    Element.rgb 0.07 0.07 0.07
-
-
-colorGrayLight : Color
-colorGrayLight =
-    Element.rgb 0.15 0.15 0.15
-
-
-colorWhite : Color
-colorWhite =
-    Element.rgb 0.8 0.8 0.8
 
 
 whiteSpacePre : Element.Attribute msg
