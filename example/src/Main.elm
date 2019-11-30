@@ -1,8 +1,12 @@
 module Main exposing (main)
 
 import Browser
+import Browser.Dom exposing (Viewport)
+import Browser.Events
+import Element exposing (Device, DeviceClass(..), Orientation(..))
 import Game exposing (Game, Size(..))
 import Html exposing (Html)
+import Task
 
 
 main : Program () Model Msg
@@ -15,11 +19,16 @@ main =
         }
 
 
-type alias Model = Game
+type alias Model =
+    { game : Game
+    , size : Size
+    }
 
 
 type Msg
     = GameMsg Game.Msg
+    | GetViewport Viewport
+    | WindowResize Int Int
 
 
 init : () -> ( Model, Cmd Msg )
@@ -133,20 +142,63 @@ init _ =
 
 Last thing you remember, you were drinking with your friends in a British pub."""
     in
-    ( finalGame, Cmd.none )
+    ( { game = finalGame
+      , size = Large
+      }
+    , Browser.Dom.getViewport |> Task.perform GetViewport
+    )
     
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Sub.none
+    Browser.Events.onResize WindowResize
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update (GameMsg msg) model =
-    Game.update msg model
-        |> Tuple.mapSecond (Cmd.map GameMsg)
+update msg model =
+    case msg of
+        GameMsg m ->
+            let
+                ( newGame, gameCmd ) = Game.update m model.game
+            in
+            ( { model | game = newGame }, Cmd.map GameMsg gameCmd )
+
+        GetViewport { viewport } ->
+            let
+                device = Element.classifyDevice { width = floor viewport.width, height = floor viewport.height }
+            in
+            ( { model
+                | size = sizeFromDevice device
+              }
+            , Cmd.none
+            )
+
+        WindowResize width height ->
+            let
+                device = Element.classifyDevice { width = width, height = height }
+            in
+            ( { model
+                | size = sizeFromDevice device
+              }
+            , Cmd.none
+            )
+
+
+sizeFromDevice : Device -> Size
+sizeFromDevice { class, orientation } =
+    case class of
+        Phone ->
+            case orientation of
+                Portrait -> Small
+                Landscape -> Large
+        Tablet ->
+            case orientation of
+                Portrait -> Small
+                Landscape -> Large
+        Desktop -> Large
+        BigDesktop -> Large
 
 
 view : Model -> Html Msg
-view game =
-    Game.view GameMsg Small game
+view { game, size } =
+    Game.view GameMsg size game

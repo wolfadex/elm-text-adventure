@@ -109,6 +109,7 @@ viewRunning parentMsg size game =
                 , Element.width Element.fill
                 , Element.height Element.fill
                 , Font.color colorWhite
+                , Font.size 32
                 , mobileStyling
                 , Html.Attributes.class "wolfadex__elm-text-adventure__main-view" |> Element.htmlAttribute
                 ]
@@ -493,7 +494,7 @@ customStyles =
         Html.node "style"
             []
             [ Html.text """
-@media only screen and (max-width: 600px) {
+/*@media only screen and (max-width: 600px) {
   .wolfadex__elm-text-adventure__mobile.wolfadex__elm-text-adventure__main-view {
     max-width: 100%;
   }
@@ -501,7 +502,7 @@ customStyles =
   .wolfadex__elm-text-adventure__mobile > .t {
     font-size: 3rem !important;
   }
-}
+}*/
 
 .wolfadex__elm-text-adventure__white-space_pre > .t {
   white-space: pre-wrap !important;
