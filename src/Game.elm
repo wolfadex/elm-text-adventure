@@ -1,25 +1,28 @@
 module Game exposing
     ( Game
     , Msg
-    , program
+    , update
+    , view
     , makeGame
-    , changeRoomName
-    , changeRoomDescription
     , finalize
     , endGame
     , addRoom
-    , deleteRoom
+    , changeRoomName
+    , changeRoomDescription
     , getCurrentRoom
     , setRoom
+    , deleteRoom
     , addConnection
+    , deleteConnection
     , createTool
     , changeItemName
     , changeItemDescription
     , changeItemUse
     , addItemToRoom
     , deleteItem
-    , deleteConnection
-    --, createContainer
+    ,  Size(..)
+       --, createContainer
+
     )
 
 {-| The following is a basic game with 2 rooms and connections to move between them.
@@ -75,7 +78,8 @@ module Game exposing
 
 ## General
 
-@docs program
+@docs update
+@docs view
 @docs makeGame
 @docs finalize
 @docs endGame
@@ -104,26 +108,27 @@ module Game exposing
 
 -}
 
-import Browser
-import Dict
+import Dict exposing (Dict)
 import Game.Internal
     exposing
         ( Description
-        , Game
+        , Detail(..)
+        , Game(..)
+        , Id
         , Item(..)
         , ItemId(..)
         , ItemUse
         , Locked(..)
         , Message
-        , Mode(..)
         , Msg(..)
         , Name
         , Room
         , RoomId(..)
-        , View(..)
+        , Theme(..)
         , addLog
         )
-import Game.View
+import Game.View exposing (ParentMsg, Size(..))
+import Html exposing (Html)
 import Set
 
 
@@ -137,24 +142,33 @@ type alias Msg =
     Game.Internal.Msg
 
 
-{-| Starts and displays your game.
+type Size
+    = Large
+    | Small
 
-    main : Program () Game Msg
-    main =
-        let
-            ...
-        in
-            Game.program yourGame
 
+{-| Displays the game, taking a parent Msg.
 -}
-program : Game -> Program () Game Msg
-program game =
-    Browser.element
-        { init = \_ -> ( game, Cmd.none )
-        , view = \(Game g) -> Game.View.view g
-        , update = \msg (Game g) -> Game.Internal.update msg g |> Tuple.mapFirst Game
-        , subscriptions = \_ -> Sub.none
-        }
+view : ParentMsg msg -> Size -> Game -> Html msg
+view parentMsg size (Game game) =
+    Game.View.view
+        parentMsg
+        (case size of
+            Large ->
+                Game.View.Large
+
+            Small ->
+                Game.View.Small
+        )
+        game
+
+
+{-| Updates the game state.
+-}
+update : Msg -> Game -> ( Game, Cmd Msg )
+update msg (Game game) =
+    Game.Internal.update msg game
+        |> Tuple.mapFirst Game
 
 
 {-| Takes a name and creates your new game.
@@ -164,17 +178,17 @@ program game =
 -}
 makeGame : Name -> Game
 makeGame name =
-    Game
-        { rooms = Dict.empty
-        , items = Dict.empty
-        , name = name
-        , buildId = 0
-        , currentRoom = RoomId -1
-        , viewing = RoomDescription
-        , log = []
-        , inventory = Set.empty
-        , mode = Building
-        }
+    { rooms = Dict.empty
+    , items = Dict.empty
+    , name = name
+    , buildId = 0
+    , currentRoom = RoomId -1
+    , log = []
+    , inventory = Set.empty
+    , theme = Light
+    }
+        |> Building
+        |> Game
 
 
 {-| Adds a new room to your game. This only creates the room and not any connections between rooms.
@@ -183,27 +197,52 @@ makeGame name =
 
 -}
 addRoom : Name -> Description -> Game -> ( RoomId, Game )
-addRoom name description (Game ({ buildId, rooms } as game)) =
-    ( RoomId buildId
-    , Game
-        { game
-            | rooms =
-                Dict.insert
-                    buildId
-                    { name = name
-                    , description = description
-                    , contents = Set.empty
-                    , connections = []
-                    }
-                    rooms
-            , buildId = buildId + 1
-        }
-    )
+addRoom name description (Game game) =
+    case game of
+        Building ({ buildId, rooms } as data) ->
+            ( RoomId buildId
+            , { data
+                | rooms =
+                    Dict.insert
+                        buildId
+                        { name = name
+                        , description = description
+                        , contents = Set.empty
+                        , connections = []
+                        }
+                        rooms
+                , buildId = buildId + 1
+              }
+                |> Building
+                |> Game
+            )
+
+        Running ({ buildId, rooms } as data) ->
+            ( RoomId buildId
+            , { data
+                | rooms =
+                    Dict.insert
+                        buildId
+                        { name = name
+                        , description = description
+                        , contents = Set.empty
+                        , connections = []
+                        }
+                        rooms
+                , buildId = buildId + 1
+              }
+                |> Running
+                |> Game
+            )
+
+        Finished _ ->
+            ( RoomId -1, Game game )
 
 
 {-| Change the name of a room.
 
     changeRoomName "New Name" someRoom yourGame
+
 -}
 changeRoomName : Name -> RoomId -> Game -> Game
 changeRoomName newName =
@@ -213,6 +252,7 @@ changeRoomName newName =
 {-| Change the namedescription of a room.
 
     changeRoomDescription "New Description" someRoom yourGame
+
 -}
 changeRoomDescription : Description -> RoomId -> Game -> Game
 changeRoomDescription newDescription =
@@ -223,14 +263,30 @@ changeRoomDescription newDescription =
 -}
 updateRoom : (Room -> Room) -> RoomId -> Game -> Game
 updateRoom changeToMake (RoomId roomId) (Game game) =
-    Game
-        { game
-            | rooms =
-                Dict.update
-                    roomId
-                    (Maybe.map changeToMake)
-                    game.rooms
-        }
+    case game of
+        Building data ->
+            updateRoomHelper changeToMake roomId data
+                |> Building
+                |> Game
+
+        Running data ->
+            updateRoomHelper changeToMake roomId data
+                |> Running
+                |> Game
+
+        Finished _ ->
+            Game game
+
+
+updateRoomHelper : (Room -> Room) -> Id -> { g | rooms : Dict Id Room } -> { g | rooms : Dict Id Room }
+updateRoomHelper changeToMake roomId game =
+    { game
+        | rooms =
+            Dict.update
+                roomId
+                (Maybe.map changeToMake)
+                game.rooms
+    }
 
 
 {-| Removes a room from the game, as well as all of its contents and any connections going to the room.
@@ -238,27 +294,38 @@ updateRoom changeToMake (RoomId roomId) (Game game) =
     deleteRoom someRoom yourGame
 
 **NOTE:** If you delete the room your character is currently in, don't forget to send them to a new room with `setRoom`!
+
 -}
 deleteRoom : RoomId -> Game -> Game
 deleteRoom (RoomId roomId) (Game game) =
-    case Dict.get roomId game.rooms of
-        Nothing ->
+    case game of
+        Building data ->
+            deleteRoomHelper roomId data |> Building |> Game
+
+        Running data ->
+            deleteRoomHelper roomId data |> Running |> Game
+
+        Finished _ ->
             Game game
 
+
+deleteRoomHelper : Id -> { g | rooms : Dict Id Room, items : Dict Id Item } -> { g | rooms : Dict Id Room, items : Dict Id Item }
+deleteRoomHelper roomId game =
+    case Dict.get roomId game.rooms of
+        Nothing ->
+            game
+
         Just { contents } ->
-            Game
-                { game
-                    | rooms =
-                        game.rooms
-                            |> Dict.remove roomId
-                            |> Dict.map (\_ r -> { r | connections = List.filter (\{ to } -> to == RoomId roomId) r.connections })
-                    , items =
-                        Dict.filter
-                            (\id _ -> not (Set.member id contents))
-                            game.items
-                }
-
-
+            { game
+                | rooms =
+                    game.rooms
+                        |> Dict.remove roomId
+                        |> Dict.map (\_ r -> { r | connections = List.filter (\{ to } -> to == RoomId roomId) r.connections })
+                , items =
+                    Dict.filter
+                        (\id _ -> not (Set.member id contents))
+                        game.items
+            }
 
 
 {-| Gets the current room the player is in. Useful for knowing where the player is when they use an item.
@@ -267,8 +334,16 @@ deleteRoom (RoomId roomId) (Game game) =
 
 -}
 getCurrentRoom : Game -> RoomId
-getCurrentRoom (Game { currentRoom }) =
-    currentRoom
+getCurrentRoom (Game game) =
+    case game of
+        Building { currentRoom } ->
+            currentRoom
+
+        Running { currentRoom } ->
+            currentRoom
+
+        Finished _ ->
+            RoomId -1
 
 
 {-| Creates a one-way connection between 2 rooms.
@@ -293,36 +368,54 @@ In order for to get from room A to room B and back, you need to create 2 connect
 
 -}
 addConnection : { from : RoomId, to : RoomId, name : String, description : String, locked : Bool, message : String } -> Game -> Game
-addConnection { from, to, name, description, locked, message } (Game ({ rooms } as game)) =
-    Game
-        { game
-            | rooms =
-                Dict.update
-                    (case from of
-                        RoomId id ->
-                            id
+addConnection connection (Game game) =
+    case game of
+        Building data ->
+            addConnectionHelper connection data |> Building |> Game
+
+        Running data ->
+            addConnectionHelper connection data |> Running |> Game
+
+        Finished _ ->
+            Game game
+
+
+addConnectionHelper : { from : RoomId, to : RoomId, name : String, description : String, locked : Bool, message : String } -> { g | rooms : Dict Id Room } -> { g | rooms : Dict Id Room }
+addConnectionHelper { from, to, name, description, locked, message } ({ rooms } as game) =
+    { game
+        | rooms =
+            Dict.update
+                (case from of
+                    RoomId id ->
+                        id
+                )
+                (Maybe.map
+                    (\({ connections } as room) ->
+                        { room
+                            | connections =
+                                { name = name
+                                , description = description
+                                , to = to
+                                , locked =
+                                    if locked then
+                                        Locked
+
+                                    else
+                                        Unlocked
+                                , message = message
+                                }
+                                    :: connections
+                        }
                     )
-                    (Maybe.map
-                        (\({ connections } as room) ->
-                            { room
-                                | connections =
-                                    { name = name
-                                    , description = description
-                                    , to = to
-                                    , locked = if locked then Locked else Unlocked
-                                    , message = message
-                                    }
-                                        :: connections
-                            }
-                        )
-                    )
-                    rooms
-        }
+                )
+                rooms
+    }
 
 
 {-| Remove the specified connection from the game. A connection is identified by the room it's coming from, going to, and its name.
 
     deleteConnection { from = roomId1, to = roomId2, name = "Name" } yourGame
+
 -}
 deleteConnection : { from : RoomId, to : RoomId, name : Name } -> Game -> Game
 deleteConnection { from, to, name } =
@@ -345,12 +438,18 @@ deleteConnection { from, to, name } =
 -}
 finalize : RoomId -> Message -> Game -> Game
 finalize initialRoom initialMessage (Game game) =
-    Game
-        { game
-            | currentRoom = initialRoom
-            , log = [ initialMessage ]
-            , mode = Running
-        }
+    case game of
+        Building data ->
+            Game.Internal.startGame
+                { data
+                    | currentRoom = initialRoom
+                    , log = [ initialMessage ]
+                }
+                |> Running
+                |> Game
+
+        _ ->
+            Game game
 
 
 {-| Creates a tool item. A tool is any item that can be used such as a fork, sword, key, or potato.
@@ -367,7 +466,24 @@ ItemUse is how your item affects the game world, anything from opening a door to
 
 -}
 createTool : Name -> Description -> (ItemId -> Game -> ( Game, Message )) -> Game -> ( ItemId, Game )
-createTool name description use (Game ({ buildId, items } as game)) =
+createTool name description use (Game game) =
+    case game of
+        Building data ->
+            createToolHelper name description use data
+                |> Tuple.mapSecond Building
+                |> Tuple.mapSecond Game
+
+        Running data ->
+            createToolHelper name description use data
+                |> Tuple.mapSecond Running
+                |> Tuple.mapSecond Game
+
+        Finished _ ->
+            ( ItemId -1, Game game )
+
+
+createToolHelper : Name -> Description -> (ItemId -> Game -> ( Game, Message )) -> { g | buildId : Id, items : Dict Id Item } -> ( ItemId, { g | buildId : Id, items : Dict Id Item } )
+createToolHelper name description use ({ buildId, items } as game) =
     let
         item =
             Tool
@@ -377,12 +493,11 @@ createTool name description use (Game ({ buildId, items } as game)) =
                 }
     in
     ( ItemId buildId
-    , Game
-        { game
-            | items =
-                Dict.insert buildId item items
-            , buildId = buildId + 1
-        }
+    , { game
+        | items =
+            Dict.insert buildId item items
+        , buildId = buildId + 1
+      }
     )
 
 
@@ -394,6 +509,7 @@ extractGame (Game g) =
 {-| Change the name of an item.
 
     changeItemName "New Name" item game
+
 -}
 changeItemName : Name -> ItemId -> Game -> Game
 changeItemName newName =
@@ -411,6 +527,7 @@ changeItemName newName =
 {-| Change the description of an item.
 
     changeItemDescription "New description." item game
+
 -}
 changeItemDescription : Description -> ItemId -> Game -> Game
 changeItemDescription newDescription =
@@ -428,10 +545,11 @@ changeItemDescription newDescription =
 {-| Change what happens when you use an item.
 
     changeItemUse (\itemId game -> ...) item game
+
 -}
 changeItemUse : ItemUse -> ItemId -> Game -> Game
 changeItemUse newUse =
-    updatItem
+    updateItem
         (\item ->
             case item of
                 Container _ ->
@@ -446,40 +564,54 @@ changeItemUse newUse =
 -}
 updateItem : (Item -> Item) -> ItemId -> Game -> Game
 updateItem changeToMake (ItemId itemId) (Game game) =
-    Game
-        { game
-            | items =
-                Dict.update
-                    itemId
-                    (Maybe.map changeToMake)
-                    game.items
-        }
+    case game of
+        Building data ->
+            { data
+                | items =
+                    Dict.update
+                        itemId
+                        (Maybe.map changeToMake)
+                        data.items
+            }
+                |> Building
+                |> Game
+
+        Running data ->
+            { data
+                | items =
+                    Dict.update
+                        itemId
+                        (Maybe.map changeToMake)
+                        data.items
+            }
+                |> Running
+                |> Game
+
+        Finished _ ->
+            Game game
 
 
-{-| Creates a container that can be placed in a room or on your player.
 
-    createContainer "Name" "Description" yourGame
-
--}
-createContainer : Name -> Description -> Game -> ( ItemId, Game )
-createContainer name description (Game ({ buildId, items } as game)) =
-    let
-        item =
-            Container { name = name, description = description, contents = Set.empty }
-    in
-    ( ItemId buildId
-    , Game
-        { game
-            | items =
-                Dict.insert buildId item items
-            , buildId = buildId + 1
-        }
-    )
+--createContainer : Name -> Description -> Game -> ( ItemId, Game )
+--createContainer name description (Game ({ buildId, items } as game)) =
+--    let
+--        item =
+--            Container { name = name, description = description, contents = Set.empty }
+--    in
+--    ( ItemId buildId
+--    , Game
+--        { game
+--            | items =
+--                Dict.insert buildId item items
+--            , buildId = buildId + 1
+--        }
+--    )
 
 
 {-| Adds the specified item to the game.
 
     addItemToRoom item room game
+
 -}
 addItemToRoom : ItemId -> RoomId -> Game -> Game
 addItemToRoom (ItemId itemId) =
@@ -493,9 +625,21 @@ addItemToRoom (ItemId itemId) =
 -}
 setRoom : RoomId -> Game -> Game
 setRoom room (Game game) =
-    game
-        |> Game.Internal.setRoom room
-        |> Game
+    case game of
+        Running data ->
+            data
+                |> Game.Internal.setRoom room
+                |> Running
+                |> Game
+
+        Building data ->
+            data
+                |> Game.Internal.setRoom room
+                |> Building
+                |> Game
+
+        Finished _ ->
+            Game game
 
 
 {-| Removes the specified item from the game.
@@ -505,15 +649,33 @@ setRoom room (Game game) =
 -}
 deleteItem : ItemId -> Game -> Game
 deleteItem (ItemId id) (Game game) =
-    Game
-        { game
-            | items = Dict.remove id game.items
-            , inventory = Set.remove id game.inventory
-            , rooms =
-                Dict.map
-                    (\_ data -> { data | contents = Set.remove id data.contents })
-                    game.rooms
-        }
+    case game of
+        Building data ->
+            { data
+                | items = Dict.remove id data.items
+                , inventory = Set.remove id data.inventory
+                , rooms =
+                    Dict.map
+                        (\_ d -> { d | contents = Set.remove id d.contents })
+                        data.rooms
+            }
+                |> Building
+                |> Game
+
+        Running data ->
+            { data
+                | items = Dict.remove id data.items
+                , inventory = Set.remove id data.inventory
+                , rooms =
+                    Dict.map
+                        (\_ d -> { d | contents = Set.remove id d.contents })
+                        data.rooms
+            }
+                |> Running
+                |> Game
+
+        Finished _ ->
+            Game game
 
 
 {-| Use this to end the game. Pass it your final message.
@@ -523,6 +685,12 @@ deleteItem (ItemId id) (Game game) =
 -}
 endGame : String -> Game -> Game
 endGame endMessage (Game game) =
-    { game | mode = Finished }
-        |> addLog endMessage
-        |> Game
+    case game of
+        Running data ->
+            Game.Internal.finishGame data
+                |> addLog endMessage
+                |> Finished
+                |> Game
+
+        _ ->
+            Game game
