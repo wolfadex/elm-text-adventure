@@ -22,7 +22,20 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
-import Game.Internal exposing (Connection, Detail(..), Game, Id, Item(..), Locked(..), Mode(..), Msg(..), RoomId(..), Theme(..))
+import Game.Internal
+    exposing
+        ( Connection
+        , Detail(..)
+        , FinishData
+        , Game(..)
+        , Id
+        , Item(..)
+        , Locked(..)
+        , Msg(..)
+        , RoomId(..)
+        , RunData
+        , Theme(..)
+        )
 import Html exposing (Html)
 import Html.Attributes
 import Set exposing (Set)
@@ -39,21 +52,28 @@ type Size
 
 view : ParentMsg msg -> Size -> Game -> Html msg
 view parentMsg size game =
+    let
+        gameTheme =
+            case game of
+                Building { theme } -> theme
+                Running { theme } -> theme
+                Finished { theme } -> theme
+    in
     Element.layout
         [ Element.width Element.fill
         , Element.height Element.fill
-        , Background.color (colorFromTheme .background game.theme)
-        , Font.color (colorFromTheme .font game.theme)
+        , Background.color (colorFromTheme .background gameTheme)
+        , Font.color (colorFromTheme .font gameTheme)
         ]
-        (case game.mode of
-            Running ->
-                viewRunning parentMsg size game
+        (case game of
+            Running data ->
+                viewRunning parentMsg size data |> Debug.log "carl 1"
 
-            Finished ->
-                viewFinished parentMsg game
+            Finished data ->
+                viewFinished parentMsg data |> Debug.log "carl 2"
 
-            Building ->
-                viewBuilding
+            Building _ ->
+                viewBuilding |> Debug.log "carl 3"
         )
 
 
@@ -67,7 +87,7 @@ colorFromTheme part theme =
             part Color.dark
 
 
-viewRunning : ParentMsg msg -> Size -> Game -> Element msg
+viewRunning : ParentMsg msg -> Size -> RunData -> Element msg
 viewRunning parentMsg size game =
     let
         nameView =
@@ -113,7 +133,7 @@ viewRunning parentMsg size game =
                     , inventoryView
                     ]
                 , spacerVertical game.theme
-                , viewGameLog game
+                , viewGameLog game False
                 ]
 
         Small ->
@@ -134,7 +154,7 @@ viewRunning parentMsg size game =
                 , spacerHorizontal game.theme
                 , inventoryView
                 , spacerHorizontal game.theme
-                , viewGameLog game
+                , viewGameLog game False
                 ]
 
 
@@ -179,20 +199,32 @@ viewGameName theme parentMsg name =
         , Background.color (colorFromTheme .background theme)
         ]
         [ Element.el
-            [ Element.width Element.fill ]
+            [ Element.width Element.fill
+            , Element.scrollbarX
+            ]
             (Element.text name)
+        , Element.el [ Element.width (Element.px 16) ] Element.none
         , button
             { label =
                 case theme of
-                    Light -> "Dark"
-                    Dark -> "Light"
+                    Light ->
+                        "Dark"
+
+                    Dark ->
+                        "Light"
             , action = Just (parentMsg ToggleTheme)
+            , theme = theme
+            }
+        , Element.el [ Element.width (Element.px 16) ] Element.none
+        , button
+            { label = "Restart"
+            , action = Just (parentMsg Restart)
             , theme = theme
             }
         ]
 
 
-viewFinished : ParentMsg msg -> Game -> Element msg
+viewFinished : ParentMsg msg -> FinishData -> Element msg
 viewFinished parentMsg game =
     Element.column
         [ Element.centerX
@@ -201,7 +233,7 @@ viewFinished parentMsg game =
         , Background.color (colorFromTheme .background game.theme)
         ]
         [ customStyles
-        , viewGameLog game
+        , viewGameLog game True
         , Element.el
             [ Element.padding (scaled 2) ]
             (button { label = "Restart", action = Just (parentMsg Restart), theme = game.theme })
@@ -213,7 +245,7 @@ viewBuilding =
     Element.none
 
 
-viewRoomDesc : ParentMsg msg -> Size -> Game -> Element msg
+viewRoomDesc : ParentMsg msg -> Size -> RunData -> Element msg
 viewRoomDesc parentMsg size game =
     let
         currentRoom =
@@ -250,7 +282,7 @@ viewRoomDesc parentMsg size game =
                 )
 
 
-viewExits : ParentMsg msg -> Size -> Game -> Element msg
+viewExits : ParentMsg msg -> Size -> RunData -> Element msg
 viewExits parentMsg size game =
     let
         exits =
@@ -312,7 +344,7 @@ viewExit theme parentMsg { name, description, to, locked, message } =
         ]
 
 
-viewItemList : msg -> (Game -> Detail) -> Size -> String -> (Id -> ( String, String ) -> List (Element msg)) -> Game -> Set Id -> Element msg
+viewItemList : msg -> (RunData -> Detail) -> Size -> String -> (Id -> ( String, String ) -> List (Element msg)) -> RunData -> Set Id -> Element msg
 viewItemList toggleAction getDetailState size label viewFn game idSet =
     let
         content =
@@ -390,35 +422,32 @@ viewPlayerItem theme parentMsg id ( n, d ) =
     ]
 
 
-viewGameLog : Game -> Element msg
-viewGameLog game =
-    case game.mode of
-        Running ->
-            game.log
-                |> List.map (\log -> Element.paragraph [ whiteSpacePre ] [ Element.text log ])
-                |> List.intersperse (logSeparator game.theme)
-                |> Element.column
-                    [ Element.spacing <| scaled 1
-                    , Element.padding <| scaled 1
-                    , Element.scrollbarY
-                    , Element.width Element.fill
-                    , Element.height Element.fill
-                    , Background.color (colorFromTheme .background game.theme)
-                    ]
+viewGameLog : { a | log : List String, theme : Theme } -> Bool -> Element msg
+viewGameLog { log, theme } gameFinished =
+    if gameFinished then
+        log
+            |> List.take 2
+            |> List.map (\l -> Element.paragraph [ whiteSpacePre ] [ Element.text l ])
+            |> List.intersperse (logSeparator theme)
+            |> Element.column
+                [ Element.spacing <| scaled 1
+                , Element.padding <| scaled 1
+                , Element.scrollbarY
+                , Background.color (colorFromTheme .background theme)
+                ]
 
-        Finished ->
-            game.log
-                |> List.take 2
-                |> List.map (\log -> Element.paragraph [ whiteSpacePre ] [ Element.text log ])
-                |> List.intersperse (logSeparator game.theme)
-                |> Element.column
-                    [ Element.padding (scaled 1)
-                    , Element.spacing (scaled 1)
-                    , Background.color (colorFromTheme .background game.theme)
-                    ]
-
-        Building ->
-            Element.none
+    else
+        log
+            |> List.map (\l -> Element.paragraph [ whiteSpacePre ] [ Element.text l ])
+            |> List.intersperse (logSeparator theme)
+            |> Element.column
+                [ Element.padding (scaled 1)
+                , Element.spacing (scaled 1)
+                , Element.scrollbarY
+                , Element.width Element.fill
+                , Element.height Element.fill
+                , Background.color (colorFromTheme .background theme)
+                ]
 
 
 spacerHorizontal : Theme -> Element msg

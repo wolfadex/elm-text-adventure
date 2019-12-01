@@ -1,30 +1,33 @@
 module Game.Internal exposing
-    ( Connection
+    ( BuildData
+    , Connection
     , Description
     , Detail(..)
-    , Game
+    , FinishData
+    , Game(..)
     , Id
     , Item(..)
     , ItemId(..)
     , ItemUse
     , Locked(..)
     , Message
-    , Mode(..)
     , Msg(..)
     , Name
     , Room
     , RoomId(..)
+    , RunData
     , Theme(..)
     , addLog
     , fallbackRoom
+    , finishGame
     , getCurrentRoom
     , setRoom
+    , startGame
     , update
     )
 
 ---- TYPES ----
 
-import Browser.Navigation
 import Dict exposing (Dict)
 import Set exposing (Set)
 
@@ -76,7 +79,32 @@ type alias ItemUse =
     ItemId -> Game -> ( Game, Message )
 
 
-type alias Game =
+
+--type alias Game =
+--    { rooms : Dict Id Room
+--    , items : Dict Id Item
+--    , name : String
+--    , buildId : Int
+--    , currentRoom : RoomId
+--    , log : List String
+--    , inventory : Set Id
+--    , mode : Mode
+--    , descriptionDetail : Detail
+--    , exitsDetail : Detail
+--    , roomItemsDetail : Detail
+--    , inventoryDetail : Detail
+--    , theme : Theme
+--    , initialGame : Game
+--    }
+
+
+type Game
+    = Building BuildData
+    | Running RunData
+    | Finished FinishData
+
+
+type alias BuildData =
     { rooms : Dict Id Room
     , items : Dict Id Item
     , name : String
@@ -84,12 +112,31 @@ type alias Game =
     , currentRoom : RoomId
     , log : List String
     , inventory : Set Id
-    , mode : Mode
+    , theme : Theme
+    }
+
+
+type alias RunData =
+    { rooms : Dict Id Room
+    , items : Dict Id Item
+    , name : String
+    , buildId : Int
+    , currentRoom : RoomId
+    , log : List String
+    , inventory : Set Id
     , descriptionDetail : Detail
     , exitsDetail : Detail
     , roomItemsDetail : Detail
     , inventoryDetail : Detail
     , theme : Theme
+    , initialGame : BuildData
+    }
+
+
+type alias FinishData =
+    { log : List String
+    , theme : Theme
+    , initialGame : BuildData
     }
 
 
@@ -111,12 +158,6 @@ toggleDetail detail =
 
         Collapsed ->
             Expanded
-
-
-type Mode
-    = Building
-    | Running
-    | Finished
 
 
 type alias Connection =
@@ -158,117 +199,192 @@ type alias Description =
 ---- FUNCTIONS ----
 
 
+startGame : BuildData -> RunData
+startGame data =
+    { rooms = data.rooms
+    , items = data.items
+    , name = data.name
+    , buildId = data.buildId
+    , currentRoom = data.currentRoom
+    , log = data.log
+    , inventory = data.inventory
+    , theme = data.theme
+    , descriptionDetail = Collapsed
+    , exitsDetail = Collapsed
+    , roomItemsDetail = Collapsed
+    , inventoryDetail = Collapsed
+    , initialGame = data
+    }
+
+
+finishGame : RunData -> FinishData
+finishGame data =
+    { log = data.log
+    , theme = data.theme
+    , initialGame = data.initialGame
+    }
+
+
 update : Msg -> Game -> ( Game, Cmd Msg )
 update msg game =
-    case msg of
-        Restart ->
-            ( game, Browser.Navigation.reload )
+    case game of
+        Building data ->
+            case msg of
+                MoveRoom nextRoom message ->
+                    ( data
+                        |> setRoom nextRoom
+                        |> addLog message
+                        |> Building
+                    , Cmd.none
+                    )
 
-        MoveRoom nextRoom message ->
-            ( game
-                |> setRoom nextRoom
-                |> addLog message
-            , Cmd.none
-            )
+                ToggleTheme ->
+                    ( Building (toggleTheme data)
+                    , Cmd.none
+                    )
 
-        ToggleTheme ->
-            ( { game
-                | theme =
-                    case game.theme of
-                        Light ->
-                            Dark
+                _ ->
+                    ( game, Cmd.none )
 
-                        Dark ->
-                            Light
-              }
-            , Cmd.none
-            )
+        Running data ->
+            case msg of
+                Restart ->
+                    ( Running (startGame data.initialGame), Cmd.none )
 
-        PickUpItem item ->
-            let
-                (RoomId roomId) =
-                    game.currentRoom
+                MoveRoom nextRoom message ->
+                    ( data
+                        |> setRoom nextRoom
+                        |> addLog message
+                        |> Running
+                    , Cmd.none
+                    )
 
-                itemName =
-                    Dict.get item game.items
-                        |> getItemName
-            in
-            ( { game
-                | rooms =
-                    Dict.update
-                        roomId
-                        (Maybe.map
-                            (\room ->
-                                { room | contents = Set.remove item room.contents }
-                            )
-                        )
-                        game.rooms
-                , inventory = Set.insert item game.inventory
-              }
-                |> addLog ("Picked up " ++ itemName)
-            , Cmd.none
-            )
+                ToggleTheme ->
+                    ( Running (toggleTheme data)
+                    , Cmd.none
+                    )
 
-        DropItem item ->
-            let
-                (RoomId roomId) =
-                    game.currentRoom
+                PickUpItem item ->
+                    let
+                        (RoomId roomId) =
+                            data.currentRoom
 
-                itemName =
-                    Dict.get item game.items
-                        |> getItemName
+                        itemName =
+                            Dict.get item data.items
+                                |> getItemName
+                    in
+                    ( { data
+                        | rooms =
+                            Dict.update
+                                roomId
+                                (Maybe.map
+                                    (\room ->
+                                        { room | contents = Set.remove item room.contents }
+                                    )
+                                )
+                                data.rooms
+                        , inventory = Set.insert item data.inventory
+                      }
+                        |> addLog ("Picked up " ++ itemName)
+                        |> Running
+                    , Cmd.none
+                    )
 
-                roomName =
-                    Dict.get roomId game.rooms
-                        |> Maybe.withDefault fallbackRoom
-                        |> .name
-            in
-            ( { game
-                | rooms =
-                    Dict.update
-                        roomId
-                        (Maybe.map
-                            (\room ->
-                                { room | contents = Set.insert item room.contents }
-                            )
-                        )
-                        game.rooms
-                , inventory = Set.remove item game.inventory
-              }
-                |> addLog ("Dropped " ++ itemName ++ " in " ++ roomName)
-            , Cmd.none
-            )
+                DropItem item ->
+                    let
+                        (RoomId roomId) =
+                            data.currentRoom
 
-        UseItem item ->
-            let
-                toolUse =
-                    game.items
-                        |> Dict.get item
-                        |> (\i ->
-                                case i of
-                                    Just (Tool { use }) ->
-                                        use
+                        itemName =
+                            Dict.get item data.items
+                                |> getItemName
 
-                                    _ ->
-                                        \_ g -> ( g, "Nothing happens." )
-                           )
+                        roomName =
+                            Dict.get roomId data.rooms
+                                |> Maybe.withDefault fallbackRoom
+                                |> .name
+                    in
+                    ( { data
+                        | rooms =
+                            Dict.update
+                                roomId
+                                (Maybe.map
+                                    (\room ->
+                                        { room | contents = Set.insert item room.contents }
+                                    )
+                                )
+                                data.rooms
+                        , inventory = Set.remove item data.inventory
+                      }
+                        |> addLog ("Dropped " ++ itemName ++ " in " ++ roomName)
+                        |> Running
+                    , Cmd.none
+                    )
 
-                ( nextGame, message ) =
-                    toolUse (ItemId item) game
-            in
-            ( addLog message nextGame, Cmd.none )
+                UseItem item ->
+                    let
+                        toolUse =
+                            data.items
+                                |> Dict.get item
+                                |> (\i ->
+                                        case i of
+                                            Just (Tool { use }) ->
+                                                use
 
-        ToggleDescription ->
-            ( { game | descriptionDetail = toggleDetail game.descriptionDetail }, Cmd.none )
+                                            _ ->
+                                                \_ g -> ( g, "Nothing happens." )
+                                   )
 
-        ToggleExits ->
-            ( { game | exitsDetail = toggleDetail game.exitsDetail }, Cmd.none )
+                        ( nextGame, message ) =
+                            toolUse (ItemId item) game
+                    in
+                    case nextGame of
+                        Running d ->
+                            ( Running (addLog message d), Cmd.none )
 
-        ToggleRoomItems ->
-            ( { game | roomItemsDetail = toggleDetail game.roomItemsDetail }, Cmd.none )
+                        Finished d ->
+                            ( Finished (addLog message d), Cmd.none)
 
-        ToggleInventory ->
-            ( { game | inventoryDetail = toggleDetail game.inventoryDetail }, Cmd.none )
+                        Building _ ->
+                            ( game, Cmd.none )
+
+                ToggleDescription ->
+                    ( Running { data | descriptionDetail = toggleDetail data.descriptionDetail }, Cmd.none )
+
+                ToggleExits ->
+                    ( Running { data | exitsDetail = toggleDetail data.exitsDetail }, Cmd.none )
+
+                ToggleRoomItems ->
+                    ( Running { data | roomItemsDetail = toggleDetail data.roomItemsDetail }, Cmd.none )
+
+                ToggleInventory ->
+                    ( Running { data | inventoryDetail = toggleDetail data.inventoryDetail }, Cmd.none )
+
+        Finished data ->
+            case msg of
+                Restart ->
+                    ( Running (startGame data.initialGame), Cmd.none )
+
+                ToggleTheme ->
+                    ( Finished (toggleTheme data)
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( game, Cmd.none )
+
+
+toggleTheme : { a | theme : Theme } -> { a | theme : Theme }
+toggleTheme data =
+    { data
+        | theme =
+            case data.theme of
+                Light ->
+                    Dark
+
+                Dark ->
+                    Light
+    }
 
 
 addLog : String -> { a | log : List String } -> { a | log : List String }
@@ -298,7 +414,7 @@ fallbackRoom =
     }
 
 
-getCurrentRoom : Game -> Room
+getCurrentRoom : { a | rooms : Dict Id Room, currentRoom : RoomId } -> Room
 getCurrentRoom { rooms, currentRoom } =
     case currentRoom of
         RoomId id ->
@@ -309,6 +425,6 @@ getCurrentRoom { rooms, currentRoom } =
 ---- FUNCTIONS EXPORTED ALL THE WAY ----
 
 
-setRoom : RoomId -> Game -> Game
+setRoom : RoomId -> { a | currentRoom : RoomId } -> { a | currentRoom : RoomId }
 setRoom room game =
     { game | currentRoom = room }
