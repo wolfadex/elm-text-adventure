@@ -18,6 +18,8 @@ module Game.Internal exposing
     , RunData
     , Theme(..)
     , addLog
+    , decodeGame
+    , encodeGame
     , fallbackRoom
     , finishGame
     , getCurrentRoom
@@ -26,10 +28,15 @@ module Game.Internal exposing
     , update
     )
 
----- TYPES ----
-
 import Dict exposing (Dict)
+import Json.Decode exposing (Decoder)
+import Json.Decode.Pipeline exposing (hardcoded, required)
+import Json.Encode exposing (Value)
 import Set exposing (Set)
+
+
+
+---- TYPES ----
 
 
 type alias Message =
@@ -52,6 +59,34 @@ type alias Room =
     }
 
 
+encodeRoom : ( Id, Room ) -> ( String, Value )
+encodeRoom ( id, room ) =
+    ( String.fromInt id
+    , Json.Encode.object
+        [ ( "description", Json.Encode.string room.description )
+        , ( "name", Json.Encode.string room.name )
+        , ( "contents"
+          , room.contents
+                |> Set.toList
+                |> Json.Encode.list Json.Encode.int
+          )
+        , ( "connections"
+          , room.connections
+                |> Json.Encode.list encodeConnection
+          )
+        ]
+    )
+
+
+decodeRoom : Decoder Room
+decodeRoom =
+    Json.Decode.map4 Room
+        (Json.Decode.field "description" Json.Decode.string)
+        (Json.Decode.field "name" Json.Decode.string)
+        (Json.Decode.field "contents" (decodeSet Json.Decode.int))
+        (Json.Decode.field "connections" (Json.Decode.list decodeConnection))
+
+
 type ItemId
     = ItemId Id
 
@@ -61,11 +96,81 @@ type Item
     | Container ContainerData
 
 
+encodeItem : ( Id, Item ) -> ( String, Value )
+encodeItem ( id, item ) =
+    ( String.fromInt id
+    , Json.Encode.object
+        [ ( "type"
+          , Json.Encode.string <|
+                case item of
+                    Tool _ ->
+                        "tool"
+
+                    Container _ ->
+                        "container"
+          )
+        , ( "data"
+          , case item of
+                Tool data ->
+                    encodeTool data
+
+                Container data ->
+                    encodeContainer data
+          )
+        ]
+    )
+
+
+decodeItem : Dict String ItemUse -> Decoder Item
+decodeItem toolUseBuilder =
+    Json.Decode.field "type" Json.Decode.string
+        |> Json.Decode.andThen
+            (\itemType ->
+                case itemType of
+                    "tool" ->
+                        Json.Decode.field "data" (decodeTool toolUseBuilder) |> Json.Decode.andThen (Tool >> Json.Decode.succeed)
+
+                    "container" ->
+                        Json.Decode.field "data" decodeContainer |> Json.Decode.andThen (Container >> Json.Decode.succeed)
+
+                    _ ->
+                        Json.Decode.fail ("Unknown item type of: " ++ itemType)
+            )
+
+
 type alias ToolData =
     { description : String
     , name : String
     , use : ItemUse
+    , decoderKey : String
     }
+
+
+encodeTool : ToolData -> Value
+encodeTool { description, name, decoderKey } =
+    Json.Encode.object
+        [ ( "description", Json.Encode.string description )
+        , ( "name", Json.Encode.string name )
+        , ( "decoderKey", Json.Encode.string decoderKey )
+        ]
+
+
+decodeTool : Dict String ItemUse -> Decoder ToolData
+decodeTool toolUseBuilder =
+    Json.Decode.map3
+        (\description name decoderKey ->
+            { description = description
+            , name = name
+            , decoderKey = decoderKey
+            , use =
+                toolUseBuilder
+                    |> Dict.get decoderKey
+                    |> Maybe.withDefault (\_ g -> ( g, "You've forgotten to implement the tool use decoder for the item: " ++ decoderKey ))
+            }
+        )
+        (Json.Decode.field "description" Json.Decode.string)
+        (Json.Decode.field "name" Json.Decode.string)
+        (Json.Decode.field "decoderKey" Json.Decode.string)
 
 
 type alias ContainerData =
@@ -75,33 +180,84 @@ type alias ContainerData =
     }
 
 
+encodeContainer : ContainerData -> Value
+encodeContainer { description, name, contents } =
+    Json.Encode.object
+        [ ( "description", Json.Encode.string description )
+        , ( "name", Json.Encode.string name )
+        , ( "contents"
+          , contents
+                |> Set.toList
+                |> Json.Encode.list Json.Encode.int
+          )
+        ]
+
+
+decodeContainer : Decoder ContainerData
+decodeContainer =
+    Json.Decode.map3 ContainerData
+        (Json.Decode.field "description" Json.Decode.string)
+        (Json.Decode.field "name" Json.Decode.string)
+        (Json.Decode.field "contents" (decodeSet Json.Decode.int))
+
+
 type alias ItemUse =
     ItemId -> Game -> ( Game, Message )
-
-
-
---type alias Game =
---    { rooms : Dict Id Room
---    , items : Dict Id Item
---    , name : String
---    , buildId : Int
---    , currentRoom : RoomId
---    , log : List String
---    , inventory : Set Id
---    , mode : Mode
---    , descriptionDetail : Detail
---    , exitsDetail : Detail
---    , roomItemsDetail : Detail
---    , inventoryDetail : Detail
---    , theme : Theme
---    , initialGame : Game
---    }
 
 
 type Game
     = Building BuildData
     | Running RunData
     | Finished FinishData
+
+
+encodeGame : Game -> Value
+encodeGame game =
+    Json.Encode.object
+        [ ( "mode"
+          , Json.Encode.string <|
+                case game of
+                    Building _ ->
+                        "building"
+
+                    Running _ ->
+                        "running"
+
+                    Finished _ ->
+                        "finished"
+          )
+        , ( "data"
+          , case game of
+                Building data ->
+                    encodeGameBuilding data
+
+                Running data ->
+                    encodeGameRunning data
+
+                Finished data ->
+                    encodeGameFinished data
+          )
+        ]
+
+
+decodeGame : Dict String ItemUse -> Decoder Game
+decodeGame toolUseBuilder =
+    Json.Decode.field "mode" Json.Decode.string
+        |> Json.Decode.andThen
+            (\mode ->
+                case mode of
+                    "building" ->
+                        Json.Decode.field "data" (decodeGameBuilding toolUseBuilder)
+
+                    "running" ->
+                        Json.Decode.field "data" (decodeGameRunning toolUseBuilder)
+
+                    "finished" ->
+                        Json.Decode.field "data" (decodeGameFinished toolUseBuilder)
+
+                    _ ->
+                        Json.Decode.fail ("Unknown mode: " ++ mode ++ ", Unabled to decode game.")
+            )
 
 
 type alias BuildData =
@@ -114,6 +270,84 @@ type alias BuildData =
     , inventory : Set Id
     , theme : Theme
     }
+
+
+encodeGameBuilding : BuildData -> Value
+encodeGameBuilding data =
+    let
+        (RoomId roomId) =
+            data.currentRoom
+    in
+    Json.Encode.object
+        [ ( "rooms"
+          , data.rooms
+                |> Dict.toList
+                |> List.map encodeRoom
+                |> Json.Encode.object
+          )
+        , ( "items"
+          , data.items
+                |> Dict.toList
+                |> List.map encodeItem
+                |> Json.Encode.object
+          )
+        , ( "name", Json.Encode.string data.name )
+        , ( "buildId", Json.Encode.int data.buildId )
+        , ( "currentRoom", Json.Encode.int roomId )
+        , ( "log", Json.Encode.list Json.Encode.string data.log )
+        , ( "inventory"
+          , data.inventory
+                |> Set.toList
+                |> Json.Encode.list Json.Encode.int
+          )
+        , ( "theme", encodeTheme data.theme )
+        ]
+
+
+decodeGameBuilding : Dict String ItemUse -> Decoder Game
+decodeGameBuilding toolUseBuilder =
+    decodeBuildData toolUseBuilder
+        |> Json.Decode.andThen (Building >> Json.Decode.succeed)
+    
+
+
+decodeBuildData : Dict String ItemUse -> Decoder BuildData
+decodeBuildData toolUseBuilder =
+    Json.Decode.succeed BuildData
+        |> required "rooms" (decodeDictId decodeRoom)
+        |> required "items" (decodeDictId (decodeItem toolUseBuilder))
+        |> required "name" Json.Decode.string
+        |> required "buildId" Json.Decode.int
+        |> required "currentRoom" decodeRoomId
+        |> required "log" (Json.Decode.list Json.Decode.string)
+        |> required "inventory" (decodeSet Json.Decode.int)
+        |> required "theme" decodeTheme
+
+
+decodeSet : Decoder comparable -> Decoder (Set comparable)
+decodeSet comparableDecoder =
+    Json.Decode.list comparableDecoder
+        |> Json.Decode.andThen (Set.fromList >> Json.Decode.succeed)
+
+
+decodeDictId : Decoder a -> Decoder (Dict Id a)
+decodeDictId valueDecoder =
+    Json.Decode.dict valueDecoder
+        |> Json.Decode.andThen
+            (\dictOfA ->
+                Json.Decode.succeed <|
+                    Dict.foldl
+                        (\k v r ->
+                            case String.toInt k of
+                                Just kId ->
+                                    Dict.insert kId v r
+
+                                Nothing ->
+                                    r
+                        )
+                        Dict.empty
+                        dictOfA
+            )
 
 
 type alias RunData =
@@ -133,6 +367,69 @@ type alias RunData =
     }
 
 
+encodeGameRunning : RunData -> Value
+encodeGameRunning data =
+    let
+        (RoomId roomId) =
+            data.currentRoom
+    in
+    Json.Encode.object
+        [ ( "rooms"
+          , data.rooms
+                |> Dict.toList
+                |> List.map encodeRoom
+                |> Json.Encode.object
+          )
+        , ( "items"
+          , data.items
+                |> Dict.toList
+                |> List.map encodeItem
+                |> Json.Encode.object
+          )
+        , ( "name", Json.Encode.string data.name )
+        , ( "buildId", Json.Encode.int data.buildId )
+        , ( "currentRoom", Json.Encode.int roomId )
+        , ( "log", Json.Encode.list Json.Encode.string data.log )
+        , ( "inventory"
+          , data.inventory
+                |> Set.toList
+                |> Json.Encode.list Json.Encode.int
+          )
+
+        -- No need to encode these
+        --, descriptionDetail : Detail
+        --, exitsDetail : Detail
+        --, roomItemsDetail : Detail
+        --, inventoryDetail : Detail
+        , ( "theme", encodeTheme data.theme )
+        , ( "initialGame", encodeGameBuilding data.initialGame )
+        ]
+
+
+decodeGameRunning : Dict String ItemUse -> Decoder Game
+decodeGameRunning toolUseBuilder =
+    decodeRunData toolUseBuilder
+        |> Json.Decode.andThen (Running >> Json.Decode.succeed)
+
+
+decodeRunData : Dict String ItemUse -> Decoder RunData
+decodeRunData toolUseBuilder =
+    Json.Decode.succeed RunData
+        |> required "rooms" (decodeDictId decodeRoom)
+        |> required "items" (decodeDictId (decodeItem toolUseBuilder))
+        |> required "name" Json.Decode.string
+        |> required "buildId" Json.Decode.int
+        |> required "currentRoom" decodeRoomId
+        |> required "log" (Json.Decode.list Json.Decode.string)
+        |> required "inventory" (decodeSet Json.Decode.int)
+        |> hardcoded Collapsed
+        |> hardcoded Collapsed
+        |> hardcoded Collapsed
+        |> hardcoded Collapsed
+        |> required "theme" decodeTheme
+        |> required "initialGame" (decodeBuildData toolUseBuilder)
+
+
 type alias FinishData =
     { log : List String
     , theme : Theme
@@ -140,9 +437,57 @@ type alias FinishData =
     }
 
 
+encodeGameFinished : FinishData -> Value
+encodeGameFinished data =
+    Json.Encode.object
+        [ ( "log", Json.Encode.list Json.Encode.string data.log )
+        , ( "theme", encodeTheme data.theme )
+        , ( "initialGame", encodeGameBuilding data.initialGame )
+        ]
+
+
+decodeGameFinished : Dict String ItemUse -> Decoder Game
+decodeGameFinished toolUseBuilder =
+    decodeFinishData toolUseBuilder
+        |> Json.Decode.andThen (Finished >> Json.Decode.succeed)
+
+
+decodeFinishData : Dict String ItemUse -> Decoder FinishData
+decodeFinishData toolUseBuilder =
+    Json.Decode.succeed FinishData
+        |> required "log" (Json.Decode.list Json.Decode.string)
+        |> required "theme" decodeTheme
+        |> required "initialGame" (decodeBuildData toolUseBuilder)
+
+
 type Theme
     = Light
     | Dark
+
+
+encodeTheme : Theme -> Value
+encodeTheme theme =
+    Json.Encode.string <|
+        case theme of
+            Light ->
+                "light"
+
+            Dark ->
+                "dark"
+
+
+decodeTheme : Decoder Theme
+decodeTheme =
+    Json.Decode.string
+        |> Json.Decode.andThen
+            (\str ->
+                Json.Decode.succeed <|
+                    if str == "dark" then
+                        Dark
+
+                    else
+                        Light
+            )
 
 
 type Detail
@@ -169,9 +514,67 @@ type alias Connection =
     }
 
 
+encodeConnection : Connection -> Value
+encodeConnection connection =
+    let
+        (RoomId roomId) =
+            connection.to
+    in
+    Json.Encode.object
+        [ ( "to", Json.Encode.int roomId )
+        , ( "locked"
+          , encodeLocked connection.locked
+          )
+        , ( "name", Json.Encode.string connection.name )
+        , ( "description", Json.Encode.string connection.description )
+        , ( "message", Json.Encode.string connection.message )
+        ]
+
+
+decodeConnection : Decoder Connection
+decodeConnection =
+    Json.Decode.map5 Connection
+        (Json.Decode.field "to" decodeRoomId)
+        (Json.Decode.field "locked" decodeLocked)
+        (Json.Decode.field "name" Json.Decode.string)
+        (Json.Decode.field "description" Json.Decode.string)
+        (Json.Decode.field "message" Json.Decode.string)
+
+
+decodeRoomId : Decoder RoomId
+decodeRoomId =
+    Json.Decode.int
+        |> Json.Decode.andThen (RoomId >> Json.Decode.succeed)
+
+
 type Locked
     = Locked
     | Unlocked
+
+
+encodeLocked : Locked -> Value
+encodeLocked locked =
+    Json.Encode.bool <|
+        case locked of
+            Locked ->
+                True
+
+            Unlocked ->
+                False
+
+
+decodeLocked : Decoder Locked
+decodeLocked =
+    Json.Decode.bool
+        |> Json.Decode.andThen
+            (\locked ->
+                Json.Decode.succeed <|
+                    if locked then
+                        Locked
+
+                    else
+                        Unlocked
+            )
 
 
 type Msg
@@ -343,7 +746,7 @@ update msg game =
                             ( Running (addLog message d), Cmd.none )
 
                         Finished d ->
-                            ( Finished (addLog message d), Cmd.none)
+                            ( Finished (addLog message d), Cmd.none )
 
                         Building _ ->
                             ( game, Cmd.none )

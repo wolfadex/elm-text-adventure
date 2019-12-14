@@ -22,7 +22,8 @@ module Game exposing
     , deleteItem
     ,  Size(..)
        --, createContainer
-
+    , exportGame
+    , importGame
     )
 
 {-| The following is a basic game with 2 rooms and connections to move between them.
@@ -129,6 +130,8 @@ import Game.Internal
         )
 import Game.View exposing (ParentMsg, Size(..))
 import Html exposing (Html)
+import Json.Decode exposing (Decoder, Value)
+import Json.Encode
 import Set
 
 
@@ -465,16 +468,16 @@ finalize initialRoom initialMessage (Game game) =
 ItemUse is how your item affects the game world, anything from opening a door to teleporting the player.
 
 -}
-createTool : Name -> Description -> (ItemId -> Game -> ( Game, Message )) -> Game -> ( ItemId, Game )
-createTool name description use (Game game) =
+createTool : Name -> Description -> (ItemId -> Game -> ( Game, Message )) -> String -> Game -> ( ItemId, Game )
+createTool name description use decoderKey (Game game) =
     case game of
         Building data ->
-            createToolHelper name description use data
+            createToolHelper name description use decoderKey data
                 |> Tuple.mapSecond Building
                 |> Tuple.mapSecond Game
 
         Running data ->
-            createToolHelper name description use data
+            createToolHelper name description use decoderKey data
                 |> Tuple.mapSecond Running
                 |> Tuple.mapSecond Game
 
@@ -482,14 +485,15 @@ createTool name description use (Game game) =
             ( ItemId -1, Game game )
 
 
-createToolHelper : Name -> Description -> (ItemId -> Game -> ( Game, Message )) -> { g | buildId : Id, items : Dict Id Item } -> ( ItemId, { g | buildId : Id, items : Dict Id Item } )
-createToolHelper name description use ({ buildId, items } as game) =
+createToolHelper : Name -> Description -> (ItemId -> Game -> ( Game, Message )) -> String -> { g | buildId : Id, items : Dict Id Item } -> ( ItemId, { g | buildId : Id, items : Dict Id Item } )
+createToolHelper name description use decoderKey ({ buildId, items } as game) =
     let
         item =
             Tool
                 { name = name
                 , description = description
                 , use = \i g -> use i (Game g) |> Tuple.mapFirst extractGame
+                , decoderKey = decoderKey
                 }
     in
     ( ItemId buildId
@@ -694,3 +698,15 @@ endGame endMessage (Game game) =
 
         _ ->
             Game game
+
+
+exportGame : Game -> Value
+exportGame (Game game) =
+    Game.Internal.encodeGame game
+
+
+importGame : Dict String ItemUse -> Value -> Result Json.Decode.Error Game
+importGame toolUseBuilder value =
+    case Json.Decode.decodeValue (Game.Internal.decodeGame toolUseBuilder) value of
+        Ok g -> Ok (Game g)
+        Err err -> Err err

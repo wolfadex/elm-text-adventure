@@ -75,6 +75,7 @@ init _ =
     A long, spindly pale arm reaches through and grabs you, pulling you into the nothingness . . ."""
                     )
                 )
+                "bloodyKnife"
                 game5
 
         ( fork, game7 ) =
@@ -82,6 +83,7 @@ init _ =
                 "Fork"
                 "Your standard fork."
                 (\_ g -> ( g, "You wave the fork in the air, like you just don't care." ))
+                "fork"
                 game6
 
         finalGame =
