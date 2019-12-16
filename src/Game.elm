@@ -22,7 +22,8 @@ module Game exposing
     , deleteItem
     ,  Size(..)
        --, createContainer
-
+    , encode
+    , decode
     )
 
 {-| The following is a basic game with 2 rooms and connections to move between them.
@@ -83,6 +84,9 @@ module Game exposing
 @docs makeGame
 @docs finalize
 @docs endGame
+@docs Size
+@docs encode
+@docs decode
 
 
 ## Rooms
@@ -129,6 +133,7 @@ import Game.Internal
         )
 import Game.View exposing (ParentMsg, Size(..))
 import Html exposing (Html)
+import Json.Decode exposing (Value)
 import Set
 
 
@@ -142,6 +147,12 @@ type alias Msg =
     Game.Internal.Msg
 
 
+{-| Used for determining the way the game is displayed.
+
+When Large, the log is displayed on the right and interactions on the left.
+
+When Small, the log is displayed on the bottom and interactions on the top. Interactions are also collapsible so they take up less space.
+-}
 type Size
     = Large
     | Small
@@ -465,16 +476,16 @@ finalize initialRoom initialMessage (Game game) =
 ItemUse is how your item affects the game world, anything from opening a door to teleporting the player.
 
 -}
-createTool : Name -> Description -> (ItemId -> Game -> ( Game, Message )) -> Game -> ( ItemId, Game )
-createTool name description use (Game game) =
+createTool : { name : Name, description : Description, use : (ItemId -> Game -> ( Game, Message )), decoderKey : String } -> Game -> ( ItemId, Game )
+createTool args (Game game) =
     case game of
         Building data ->
-            createToolHelper name description use data
+            createToolHelper args data
                 |> Tuple.mapSecond Building
                 |> Tuple.mapSecond Game
 
         Running data ->
-            createToolHelper name description use data
+            createToolHelper args data
                 |> Tuple.mapSecond Running
                 |> Tuple.mapSecond Game
 
@@ -482,14 +493,15 @@ createTool name description use (Game game) =
             ( ItemId -1, Game game )
 
 
-createToolHelper : Name -> Description -> (ItemId -> Game -> ( Game, Message )) -> { g | buildId : Id, items : Dict Id Item } -> ( ItemId, { g | buildId : Id, items : Dict Id Item } )
-createToolHelper name description use ({ buildId, items } as game) =
+createToolHelper : { name : Name, description : Description, use : (ItemId -> Game -> ( Game, Message )), decoderKey : String } -> { g | buildId : Id, items : Dict Id Item } -> ( ItemId, { g | buildId : Id, items : Dict Id Item } )
+createToolHelper { name, description, use, decoderKey } ({ buildId, items } as game) =
     let
         item =
             Tool
                 { name = name
                 , description = description
-                , use = \i g -> use i (Game g) |> Tuple.mapFirst extractGame
+                , use = mapToolUse use
+                , decoderKey = decoderKey
                 }
     in
     ( ItemId buildId
@@ -499,6 +511,11 @@ createToolHelper name description use ({ buildId, items } as game) =
         , buildId = buildId + 1
       }
     )
+
+
+mapToolUse : (ItemId -> Game -> ( Game, Message )) -> ItemUse
+mapToolUse use =
+    \i g -> use i (Game g) |> Tuple.mapFirst extractGame
 
 
 extractGame : Game -> Game.Internal.Game
@@ -694,3 +711,26 @@ endGame endMessage (Game game) =
 
         _ ->
             Game game
+
+
+{-| Encode the game so that it can be saved to localStorage or elsewhere.
+-}
+encode : Game -> Value
+encode (Game game) =
+    Game.Internal.encodeGame game
+
+
+{-| Decode a game that was saved.
+
+Also requires a Dict String ItemUse of the form
+
+    Dict.fromList
+        [ ( "uniqueNameForItem", (\itemId, game -> ... ( modifiedGame, "Message about what happened." )) ) ]
+
+This is used to rebuild the `use` function of the tools you've created.
+-}
+decode : Dict String (ItemId -> Game -> ( Game, Message )) -> Value -> Result Json.Decode.Error Game
+decode toolUseBuilder value =
+    case Json.Decode.decodeValue (Game.Internal.decodeGame (Dict.map (\_ use -> mapToolUse use) toolUseBuilder)) value of
+        Ok g -> Ok (Game g)
+        Err err -> Err err

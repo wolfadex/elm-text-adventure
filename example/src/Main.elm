@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
 import Browser.Dom exposing (Viewport)
@@ -7,9 +7,11 @@ import Element exposing (Device, DeviceClass(..), Orientation(..))
 import Game exposing (Game, Size(..))
 import Html exposing (Html)
 import Task
+import Json.Decode exposing (Value)
+import Dict
 
 
-main : Program () Model Msg
+main : Program Value Model Msg
 main =
     Browser.element
         { init = init
@@ -31,9 +33,13 @@ type Msg
     | WindowResize Int Int
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    let
+
+init : Value -> ( Model, Cmd Msg )
+init maybeSavedGame =
+    let        
+        toolUseBuilder1 =
+            Dict.empty
+
         game1 =
             Game.makeGame "Spaceship"
 
@@ -61,27 +67,49 @@ init _ =
                 "The room is humming with the sounds of the engine. There are storage tanks for fuel and oxygen."
                 game4
 
+        bloodyKnifeDecoderKey =
+            "bloodyKnife"
+
+        bloodyKnifeUse =
+            (\item g ->
+                ( g
+                    |> Game.deleteItem item
+                    |> Game.endGame
+                        "You see nothing. You feel nothing. You smell nothing. Your mind starts to crumble under the nothingness."
+                , """You wave the knife through the air. It seems to cut through space, opening a passage to another plane.
+
+A long, spindly pale arm reaches through and grabs you, pulling you into the nothingness . . ."""
+                )
+            )
+
+        toolUseBuilder2 =
+            Dict.insert bloodyKnifeDecoderKey bloodyKnifeUse toolUseBuilder1
+
         ( bloodyKnife, game6 ) =
             Game.createTool
-                "Bloody Knife"
-                "An acient blade covered in blood. The blood is still warm."
-                (\item g ->
-                    ( g
-                        |> Game.deleteItem item
-                        |> Game.endGame
-                            "You see nothing. You feel nothing. You smell nothing. Your mind starts to crumble under the nothingness."
-                    , """You wave the knife through the air. It seems to cut through space, opening a passage to another plane.
-
-    A long, spindly pale arm reaches through and grabs you, pulling you into the nothingness . . ."""
-                    )
-                )
+                { name = "Bloody Knife"
+                , description = "An acient blade covered in blood. The blood is still warm."
+                , use = bloodyKnifeUse
+                , decoderKey = bloodyKnifeDecoderKey
+                }
                 game5
+
+        forkDecoderKey =
+            "fork"
+
+        forkUse =
+            (\_ g -> ( g, "You wave the fork in the air, like you just don't care." ))
+
+        toolUseBuilder3 =
+            Dict.insert forkDecoderKey forkUse toolUseBuilder2
 
         ( fork, game7 ) =
             Game.createTool
-                "Fork"
-                "Your standard fork."
-                (\_ g -> ( g, "You wave the fork in the air, like you just don't care." ))
+                { name = "Fork"
+                , description = "Your standard fork."
+                , use = forkUse
+                , decoderKey = forkDecoderKey
+                }
                 game6
 
         finalGame =
@@ -142,7 +170,13 @@ init _ =
 
 Last thing you remember, you were drinking with your friends in a British pub."""
     in
-    ( { game = finalGame
+    ( { game =
+            case Game.decode toolUseBuilder3 maybeSavedGame of
+                Ok savedGame ->
+                    savedGame
+
+                Err _ ->
+                    finalGame
       , size = Large
       }
     , Browser.Dom.getViewport |> Task.perform GetViewport
@@ -154,6 +188,9 @@ subscriptions _ =
     Browser.Events.onResize WindowResize
 
 
+port saveGame : Value -> Cmd msg
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -161,7 +198,14 @@ update msg model =
             let
                 ( newGame, gameCmd ) = Game.update m model.game
             in
-            ( { model | game = newGame }, Cmd.map GameMsg gameCmd )
+            ( { model | game = newGame }
+            , Cmd.batch
+                [ Cmd.map GameMsg gameCmd
+                , newGame
+                    |> Game.encode
+                    |> saveGame
+                ]
+            )
 
         GetViewport { viewport } ->
             let
