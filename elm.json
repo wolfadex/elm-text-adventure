@@ -3,7 +3,7 @@
     "name": "wolfadex/elm-text-adventure",
     "summary": "Simple text adventure builder and viewer",
     "license": "MIT",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "exposed-modules": [
         "Game"
     ],
