@@ -67,13 +67,13 @@ view parentMsg size game =
         ]
         (case game of
             Running data ->
-                viewRunning parentMsg size data |> Debug.log "carl 1"
+                viewRunning parentMsg size data
 
             Finished data ->
-                viewFinished parentMsg data |> Debug.log "carl 2"
+                viewFinished parentMsg data
 
             Building _ ->
-                viewBuilding |> Debug.log "carl 3"
+                viewBuilding
         )
 
 

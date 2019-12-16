@@ -4,5 +4,4 @@ elm-stuff
 node_modules
 .cache
 
-example/index.html
-example/elm.js
+example/dist
